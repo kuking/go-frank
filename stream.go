@@ -21,7 +21,14 @@ type Stream interface {
 	Map(op interface{}) *Stream
 	Reduce(op interface{}) *Stream
 	Filter(op interface{}) *Stream
-	Sum() *Stream
+	//Skip(int) *Stream
+	//SkipRight(int) *Stream
+	//DropWhile(op interface{}) *Stream
+	//Find(interface{}) *Stream // can be a value or a function
+	//FlatMap() *Stream
+	// Reverse?
+	//Sum() *Stream
+	//Sort
 
 	// Status
 	IsClosed() bool
@@ -30,8 +37,15 @@ type Stream interface {
 	First() (interface{}, bool)
 	Last() (interface{}, bool)
 	AsArray() []interface{}
-	Count() int
-	CountUint64() uint64
+	Count() int  //LENGTH?
+	CountUint64() uint64  //LENGTH?
+	//AllMatch(interface{}) bool
+	//NoneMatch(interface{}) bool
+	//AnyMatch(interface{}) bool
+	//IsEmpty() bool
+	//IndexOf(interface()) int // can be a value or a function
+	//Distinct??
+	//EndsWith()
 }
 
 type streamImpl struct {
