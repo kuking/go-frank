@@ -5,7 +5,7 @@ import (
 )
 
 func TestSimplest(t *testing.T) {
-	s := EmptyStream()
+	s := EmptyStream(256)
 	s.Feed("Hello")
 	go s.Close()
 

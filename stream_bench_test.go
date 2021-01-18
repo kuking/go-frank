@@ -5,18 +5,19 @@ import (
 )
 
 func BenchmarkSum(b *testing.B) {
-	count := 1000
-	times := 1
-	exp := count * (count - 1) / 2
-	arr := givenArray(count)
-	for i := 0; i < times; i++ {
-		if res, ok := ArrayStream(arr).Sum().First(); !ok || res != exp {
+	size := 1000000
+	exp := size * (size - 1) / 2
+	arr := givenArray(size)
+	s := ArrayStream(arr)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.Reset()
+		if res, ok := s.Sum().First(); !ok || res != exp {
 			b.Fatal(res)
 		}
 	}
-	b.N = count * times
-	// 1000:1000 = 1338ns/op  (ArrayStreamSlow)
-	// 10000:10000 = 223ns/op (ArrayStream)
+	b.ReportMetric(float64(size), "elems/op")
 }
 
 func givenArray(count int) []interface{} {

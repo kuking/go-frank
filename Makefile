@@ -15,4 +15,7 @@ coverage:
 	go tool cover -func=coverage.out
 
 benchmark:
-	go test -run=Benchmark -bench=. -benchmem
+	go test -run=Benchmark -bench=.
+
+memory: clean
+	go tool compile "-m" stream.go # -S

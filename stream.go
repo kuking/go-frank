@@ -6,16 +6,19 @@ import (
 	"runtime"
 	"sync/atomic"
 	"time"
-	"unsafe"
 )
 
-var noElementMarker interface{} = "nope"
-
 type Stream interface {
-	// Feeds an element to the frank stream, blocking until space is available. In order to have space, a stream
-	// terminator has to be pulling the stream.
+	// Lifecycle
+
+	// Feeds an element into the stream
 	Feed(elem interface{})
+
+	// Closes the stream
 	Close()
+
+	// Resets the stream position to zero, not always possible.
+	Reset()
 
 	// Transformations
 	Map(op interface{}) *Stream
@@ -37,8 +40,8 @@ type Stream interface {
 	First() (interface{}, bool)
 	Last() (interface{}, bool)
 	AsArray() []interface{}
-	Count() int  //LENGTH?
-	CountUint64() uint64  //LENGTH?
+	Count() int          //LENGTH?
+	CountUint64() uint64 //LENGTH?
 	//AllMatch(interface{}) bool
 	//NoneMatch(interface{}) bool
 	//AnyMatch(interface{}) bool
@@ -48,66 +51,71 @@ type Stream interface {
 	//EndsWith()
 }
 
+// --------------------------------------------------------------------------------------------------------------------
+//
+// Ring buffer implementation and basic builders
+//
+// --------------------------------------------------------------------------------------------------------------------
+
 type streamImpl struct {
-	elem   *interface{}
-	closed int32
-	pull   func(s *streamImpl) (read interface{}, closed bool)
-	prev   *streamImpl
+	ringBuffer []*interface{}
+	ringRead   int32
+	ringWrite  int32
+	closed     int32
+	pull       func(s *streamImpl) (read interface{}, closed bool)
+	prev       *streamImpl
 }
 
 // Creates a EmptyStream empty stream
-func EmptyStream() (stream *streamImpl) {
+func EmptyStream(capacity int) (stream *streamImpl) {
 	stream = &streamImpl{
-		elem:   &noElementMarker,
-		closed: 0,
-		pull:   headPull,
-		prev:   nil,
+		ringBuffer: make([]*interface{}, capacity),
+		ringRead:   0,
+		ringWrite:  0,
+		closed:     0,
+		pull:       ringPull,
+		prev:       nil,
 	}
 	return
 }
 
 func ArrayStream(elems []interface{}) (stream *streamImpl) {
-	st := EmptyStream()
-	idx := 0
-	count := len(elems)
-	st.pull = func(n *streamImpl) (read interface{}, closed bool) {
-		if idx < count {
-			idx++
-			return elems[idx-1], false
-		}
-		return 0, true
-	}
-	return st
-}
-
-func (s *streamImpl) arrayFeederCloser(elems []interface{}) {
+	st := EmptyStream(len(elems) + 1)
 	for _, elem := range elems {
-		s.Feed(elem)
+		st.Feed(elem)
 	}
-	s.Close()
+	go st.Close()
+	return st
 }
 
 func (s *streamImpl) Feed(elem interface{}) {
 	for i := 0; ; i++ {
-		var unsafeP = (*unsafe.Pointer)(unsafe.Pointer(&s.elem))
-		if atomic.CompareAndSwapPointer(unsafeP, unsafe.Pointer(&noElementMarker), unsafe.Pointer(&elem)) {
-			return
+		ringRead := atomic.LoadInt32(&s.ringRead)
+		ringWrite := atomic.LoadInt32(&s.ringWrite)
+		ringWriteNext := (ringWrite + 1) % int32(len(s.ringBuffer))
+		if ringWriteNext != ringRead {
+			if atomic.CompareAndSwapInt32(&s.ringWrite, ringWrite, ringWriteNext) {
+				s.ringBuffer[ringWrite] = &elem
+				return
+			}
 		}
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
 	}
 }
 
-func headPull(s *streamImpl) (read interface{}, closed bool) {
+func ringPull(s *streamImpl) (read interface{}, closer bool) {
 	for i := 0; ; i++ {
-		var unsafeP = (*unsafe.Pointer)(unsafe.Pointer(&s.elem))
-		old := atomic.SwapPointer(unsafeP, unsafe.Pointer(&noElementMarker))
-		var r = (*interface{})(old)
-		if r != &noElementMarker { /// does equals string? FIX XXX
-			return *r, false
+		ringRead := atomic.LoadInt32(&s.ringRead)
+		ringWrite := atomic.LoadInt32(&s.ringWrite)
+		if ringRead != ringWrite {
+			ringReadNext := (ringRead + 1) % int32(len(s.ringBuffer))
+			if atomic.CompareAndSwapInt32(&s.ringRead, ringRead, ringReadNext) {
+				return *s.ringBuffer[ringRead], false
+			}
 		}
 		runtime.Gosched()
-		time.Sleep(time.Duration(i) * time.Microsecond) // notice micros vs nanos
+		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
 		if s.IsClosed() {
 			return nil, true
 		}
@@ -116,10 +124,9 @@ func headPull(s *streamImpl) (read interface{}, closed bool) {
 
 func (s *streamImpl) Close() {
 	for i := 0; ; i++ {
-		var unsafeP = (*unsafe.Pointer)(unsafe.Pointer(&s.elem))
-		var loaded = atomic.LoadPointer(unsafeP)
-		var r = (*interface{})(loaded)
-		if r == &noElementMarker {
+		ringRead := atomic.LoadInt32(&s.ringRead)
+		ringWrite := atomic.LoadInt32(&s.ringWrite)
+		if ringRead == ringWrite {
 			atomic.StoreInt32(&s.closed, 1)
 			return
 		}
@@ -132,6 +139,15 @@ func (s *streamImpl) IsClosed() bool {
 	return atomic.LoadInt32(&s.closed) != 0
 }
 
+// hack, needs more assertions around resetting non-resettable buffers
+func (s *streamImpl) Reset() {
+	atomic.StoreInt32(&s.ringRead, 0)
+	if atomic.LoadInt32(&s.closed) != 0 {
+		atomic.StoreInt32(&s.closed, 0)
+		go s.Close()
+	}
+}
+
 // --------------------------------------------------------------------------------------------------------------------
 //
 // Transformation methods
@@ -140,7 +156,6 @@ func (s *streamImpl) IsClosed() bool {
 
 func (s *streamImpl) Reduce(op interface{}) *streamImpl {
 	ns := streamImpl{
-		elem:   nil,
 		closed: 0,
 		prev:   s,
 	}
@@ -169,7 +184,6 @@ func (s *streamImpl) Sum() *streamImpl {
 
 func (s *streamImpl) Map(op interface{}) *streamImpl {
 	ns := streamImpl{
-		elem:   nil,
 		closed: 0,
 		prev:   s,
 	}
@@ -186,7 +200,6 @@ func (s *streamImpl) Map(op interface{}) *streamImpl {
 
 func (s *streamImpl) Filter(op interface{}) *streamImpl {
 	ns := streamImpl{
-		elem:   nil,
 		closed: 0,
 		prev:   s,
 	}
