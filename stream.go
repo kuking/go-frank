@@ -30,7 +30,7 @@ type Stream interface {
 	//Find(interface{}) *Stream // can be a value or a function
 	//FlatMap() *Stream
 	// Reverse?
-	//Sum() *Stream
+	Sum() *Stream
 	//Sort
 
 	// Status
@@ -53,12 +53,12 @@ type Stream interface {
 
 // --------------------------------------------------------------------------------------------------------------------
 //
-// Ring buffer implementation and basic builders
+// Ring buffer implementation and builders
 //
 // --------------------------------------------------------------------------------------------------------------------
 
 type streamImpl struct {
-	ringBuffer []*interface{}
+	ringBuffer []interface{}
 	ringRead   int32
 	ringWrite  int32
 	closed     int32
@@ -69,7 +69,7 @@ type streamImpl struct {
 // Creates a EmptyStream empty stream
 func EmptyStream(capacity int) (stream *streamImpl) {
 	stream = &streamImpl{
-		ringBuffer: make([]*interface{}, capacity),
+		ringBuffer: make([]interface{}, capacity),
 		ringRead:   0,
 		ringWrite:  0,
 		closed:     0,
@@ -95,7 +95,7 @@ func (s *streamImpl) Feed(elem interface{}) {
 		ringWriteNext := (ringWrite + 1) % int32(len(s.ringBuffer))
 		if ringWriteNext != ringRead {
 			if atomic.CompareAndSwapInt32(&s.ringWrite, ringWrite, ringWriteNext) {
-				s.ringBuffer[ringWrite] = &elem
+				s.ringBuffer[ringWrite] = elem
 				return
 			}
 		}
@@ -111,7 +111,7 @@ func ringPull(s *streamImpl) (read interface{}, closer bool) {
 		if ringRead != ringWrite {
 			ringReadNext := (ringRead + 1) % int32(len(s.ringBuffer))
 			if atomic.CompareAndSwapInt32(&s.ringRead, ringRead, ringReadNext) {
-				return *s.ringBuffer[ringRead], false
+				return s.ringBuffer[ringRead], false
 			}
 		}
 		runtime.Gosched()
@@ -159,7 +159,7 @@ func (s *streamImpl) Reduce(op interface{}) *streamImpl {
 		closed: 0,
 		prev:   s,
 	}
-	fnop := reflect.ValueOf(op)
+
 	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
 		left, closed := ns.prev.pull(ns.prev)
 		if closed {
@@ -172,6 +172,7 @@ func (s *streamImpl) Reduce(op interface{}) *streamImpl {
 			}
 			rLeft := reflect.ValueOf(left)
 			rRight := reflect.ValueOf(right)
+			fnop := reflect.ValueOf(op)
 			left = fnop.Call([]reflect.Value{rLeft, rRight})[0].Interface()
 		}
 	}
