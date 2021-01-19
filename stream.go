@@ -29,6 +29,7 @@ type Stream interface {
 	ReduceNA(reducer Reducer) *Stream
 
 	Filter(op interface{}) *Stream
+	FilterNA(filter Filter) *Stream
 	//Skip(int) *Stream
 	//SkipRight(int) *Stream
 	//DropWhile(op interface{}) *Stream

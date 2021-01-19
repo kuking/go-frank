@@ -45,6 +45,23 @@ func BenchmarkReduce(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		s.Reset()
+		if res, ok := s.Reduce(func(a, b int64) int64 { return a + b }).First(); !ok || res != exp {
+			b.Fatal(res)
+		}
+	}
+	b.ReportMetric(float64(size), "elems/op")
+}
+
+// X40 times faster
+func BenchmarkReduceNA(b *testing.B) {
+	size := 1000000
+	exp := int64(size * (size - 1) / 2)
+	arr := givenInt64Array(size)
+	s := ArrayStream(arr)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
 		var int64reducer Int64SumReducer
 		s.Reset()
 		if res, ok := s.ReduceNA(&int64reducer).First(); !ok || res != exp {
@@ -69,6 +86,7 @@ func BenchmarkFilter(b *testing.B) {
 	b.ReportMetric(float64(size), "elems/op")
 }
 
+// X24 times faster
 func BenchmarkFilterNA(b *testing.B) {
 	size := 1000000
 	arr := givenInt64Array(size)
