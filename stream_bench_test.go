@@ -133,14 +133,15 @@ func BenchmarkFilterNA(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.Reset()
-		var oddFilter OddFilterInt64
-		if res := s.FilterNA(oddFilter).Count(); res != size/2 {
+		if res := s.FilterNA(func(i interface{}) bool { return i.(int64)%2 == 0 }).Count(); res != size/2 {
 			b.Fatal(res)
 		}
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(size), "elems/op")
 }
+
+
 
 // -------------------------------------------------------------------------------------------------------------------
 

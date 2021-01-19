@@ -275,7 +275,7 @@ func (s *streamImpl) Filter(op interface{}) *streamImpl {
 	return &ns
 }
 
-func (s *streamImpl) FilterNA(filter Filter) *streamImpl {
+func (s *streamImpl) FilterNA(op func(interface{}) bool) *streamImpl {
 	ns := streamImpl{
 		closed: 0,
 		prev:   s,
@@ -286,7 +286,7 @@ func (s *streamImpl) FilterNA(filter Filter) *streamImpl {
 		for !closed {
 			elem, closed = ns.prev.pull(ns.prev)
 			if !closed {
-				if !filter.Filter(elem) {
+				if !op(elem) {
 					return elem, false
 				}
 			}

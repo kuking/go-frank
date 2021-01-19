@@ -34,10 +34,3 @@ func (r *IntSumReducer) Next(a interface{}) {
 func (r *IntSumReducer) Result() interface{} {
 	return r.v
 }
-
-// filters odd int64 numbers
-type OddFilterInt64 struct{}
-
-func (OddFilterInt64) Filter(v interface{}) bool {
-	return v.(int64)&2 == 0
-}
