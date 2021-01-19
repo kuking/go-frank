@@ -37,6 +37,7 @@ type Stream interface {
 	// Reverse?
 
 	// non-allocation sum int64
+	Sum() *Stream
 	SumInt64() *Stream
 
 	//Sort
@@ -216,6 +217,10 @@ func (s *streamImpl) ReduceNA(reducer Reducer) *streamImpl {
 	return &ns
 }
 
+func (s *streamImpl) Sum() *streamImpl {
+	return s.ReduceNA(&IntSumReducer{})
+}
+
 func (s *streamImpl) SumInt64() *streamImpl {
 	return s.ReduceNA(&Int64SumReducer{})
 }
@@ -265,6 +270,31 @@ func (s *streamImpl) Filter(op interface{}) *streamImpl {
 			if !closed {
 				filtered := fnop.Call([]reflect.Value{reflect.ValueOf(elem)})[0].Bool()
 				if !filtered {
+					return elem, false
+				}
+			}
+		}
+		return nil, true
+	}
+	return &ns
+}
+
+type Filter interface {
+	Filter(interface{}) bool
+}
+
+func (s *streamImpl) FilterNA(filter Filter) *streamImpl {
+	ns := streamImpl{
+		closed: 0,
+		prev:   s,
+	}
+	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+		var elem interface{}
+		closed = false
+		for !closed {
+			elem, closed = ns.prev.pull(ns.prev)
+			if !closed {
+				if !filter.Filter(elem) {
 					return elem, false
 				}
 			}

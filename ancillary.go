@@ -17,3 +17,27 @@ func (r *Int64SumReducer) Next(a interface{}) {
 func (r *Int64SumReducer) Result() interface{} {
 	return r.v
 }
+
+// Memory efficient int reducer
+type IntSumReducer struct {
+	v int
+}
+
+func (r *IntSumReducer) First(a interface{}) {
+	r.v = a.(int)
+}
+
+func (r *IntSumReducer) Next(a interface{}) {
+	r.v += a.(int)
+}
+
+func (r *IntSumReducer) Result() interface{} {
+	return r.v
+}
+
+// filters odd int64 numbers
+type OddFilterInt64 struct{}
+
+func (OddFilterInt64) Filter(v interface{}) bool {
+	return v.(int64)&2 == 0
+}
