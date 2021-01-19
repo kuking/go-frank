@@ -1,6 +1,7 @@
 package go_frank
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -21,6 +22,7 @@ func BenchmarkSumInt64(b *testing.B) {
 	b.StopTimer()
 	b.ReportMetric(float64(size), "elems/op")
 }
+
 
 func BenchmarkSumInt(b *testing.B) {
 	size := 1000000
@@ -142,8 +144,41 @@ func BenchmarkFilterNA(b *testing.B) {
 }
 
 
+func BenchmarkGeneratorSumInt64(b *testing.B) {
+	total := b.N
+	exp := int64(total * (total - 1) / 2)
+	s := givenInt64StreamGenerator(total)
+	b.ReportAllocs()
+	b.ResetTimer()
+	if res := s.SumInt64().First(); res.isEmpty() && res.Get() != exp {
+		b.Fatal(res)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkGeneratorFilterNA(b *testing.B) {
+	total := b.N
+	s := givenInt64StreamGenerator(total)
+	b.ReportAllocs()
+	b.ResetTimer()
+	if res := s.FilterNA(func(i interface{}) bool { return i.(int64)%2 == 0 }).Count(); res != (total+1)/2 {
+		b.Fatal(fmt.Sprintf("res %v != %v exp ; total=%v", res, (total+1)/2, total))
+	}
+	b.StopTimer()
+}
 
 // -------------------------------------------------------------------------------------------------------------------
+
+func givenInt64StreamGenerator(total int) Stream {
+	count := int64(0)
+	return StreamGenerator(func() Optional {
+		count++
+		if count <= int64(total) {
+			return OptionalOf(count)
+		}
+		return EmptyOptional()
+	})
+}
 
 func givenIntArray(count int) []interface{} {
 	elems := make([]interface{}, count)
