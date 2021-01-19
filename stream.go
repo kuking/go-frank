@@ -21,6 +21,7 @@ type Stream interface {
 	Reset()
 
 	// Transformations
+
 	Map(op interface{}) *Stream
 	MapInt(func(int) int) *Stream
 
@@ -50,13 +51,13 @@ type Stream interface {
 	// Terminating methods
 	First() Optional
 	Last() Optional
+	IsEmpty() bool
 	AsArray() []interface{}
 	Count() int          //LENGTH?
 	CountUint64() uint64 //LENGTH?
-	//AllMatch(interface{}) bool
-	//NoneMatch(interface{}) bool
-	//AnyMatch(interface{}) bool
-	//IsEmpty() bool
+	AllMatch(op interface{}) bool
+	NoneMatch(interface{}) bool
+	AtLeastOne(interface{}) bool
 	//IndexOf(interface()) int // can be a value or a function
 	//Distinct??
 	//EndsWith()
@@ -325,6 +326,10 @@ func (s *streamImpl) Last() Optional {
 	}
 }
 
+func (s *streamImpl) IsEmpty() bool {
+	return s.First().isEmpty()
+}
+
 func (s *streamImpl) Count() int {
 	c := s.CountUint64()
 	if c > math.MaxInt32 {
@@ -356,4 +361,36 @@ func (s *streamImpl) AsArray() (result []interface{}) {
 		}
 	}
 	return result
+}
+
+func (s *streamImpl) AllMatch(op interface{}) bool {
+	val, closed := s.pull(s)
+	if closed {
+		return true
+	}
+	for ; !closed; {
+		if !reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(val)})[0].Bool() {
+			return false
+		}
+		val, closed = s.pull(s)
+	}
+	return true
+}
+
+func (s *streamImpl) NoneMatch(op interface{}) bool {
+	return !s.AllMatch(op)
+}
+
+func (s *streamImpl) AtLeastOne(op interface{}) bool {
+	val, closed := s.pull(s)
+	if closed {
+		return false
+	}
+	for ; !closed; {
+		if reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(val)})[0].Bool() {
+			return true
+		}
+		val, closed = s.pull(s)
+	}
+	return false
 }
