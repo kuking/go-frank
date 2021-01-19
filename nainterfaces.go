@@ -10,7 +10,3 @@ type Reducer interface {
 	Result() interface{}
 }
 
-// allocation free filter
-type Filter interface {
-	Filter(interface{}) bool
-}
