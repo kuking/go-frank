@@ -59,12 +59,12 @@ func TestMap(t *testing.T) {
 	}
 }
 
-func TestSum(t *testing.T) {
+func TestSumInt64(t *testing.T) {
 	result, ok := givenArrayStream().
-		Map(func(s string) int { return len(s) }).
-		Sum().
+		Map(func(s string) int64 { return int64(len(s)) }).
+		SumInt64().
 		First()
-	if !ok || result != 20 {
+	if !ok || result != int64(20) {
 		t.Fatal()
 	}
 }

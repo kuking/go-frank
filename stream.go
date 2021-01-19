@@ -22,7 +22,12 @@ type Stream interface {
 
 	// Transformations
 	Map(op interface{}) *Stream
+	MapInt(func(int) int) *Stream
 	Reduce(op interface{}) *Stream
+
+	// Non-Allocation Reducer
+	ReduceNA(reducer Reducer) *Stream
+
 	Filter(op interface{}) *Stream
 	//Skip(int) *Stream
 	//SkipRight(int) *Stream
@@ -30,7 +35,10 @@ type Stream interface {
 	//Find(interface{}) *Stream // can be a value or a function
 	//FlatMap() *Stream
 	// Reverse?
-	Sum() *Stream
+
+	// non-allocation sum int64
+	SumInt64() *Stream
+
 	//Sort
 
 	// Status
@@ -179,8 +187,37 @@ func (s *streamImpl) Reduce(op interface{}) *streamImpl {
 	return &ns
 }
 
-func (s *streamImpl) Sum() *streamImpl {
-	return s.Reduce(func(l, r int) int { return l + r })
+// This type enables allocation free reducers
+type Reducer interface {
+	First(interface{})
+	Next(interface{})
+	Result() interface{}
+}
+
+func (s *streamImpl) ReduceNA(reducer Reducer) *streamImpl {
+	ns := streamImpl{
+		closed: 0,
+		prev:   s,
+	}
+	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+		left, closed := ns.prev.pull(ns.prev)
+		if closed {
+			return nil, true
+		}
+		reducer.First(left)
+		for {
+			right, closed := ns.prev.pull(ns.prev)
+			if closed {
+				return reducer.Result(), false
+			}
+			reducer.Next(right)
+		}
+	}
+	return &ns
+}
+
+func (s *streamImpl) SumInt64() *streamImpl {
+	return s.ReduceNA(&Int64SumReducer{})
 }
 
 func (s *streamImpl) Map(op interface{}) *streamImpl {
@@ -195,6 +232,21 @@ func (s *streamImpl) Map(op interface{}) *streamImpl {
 			return nil, true
 		}
 		return fnop.Call([]reflect.Value{reflect.ValueOf(value)})[0].Interface(), false
+	}
+	return &ns
+}
+
+func (s *streamImpl) MapInt(op func(int) int) *streamImpl {
+	ns := streamImpl{
+		closed: 0,
+		prev:   s,
+	}
+	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+		value, closed := ns.prev.pull(ns.prev)
+		if closed {
+			return nil, true
+		}
+		return op(value.(int)), false
 	}
 	return &ns
 }
