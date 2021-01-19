@@ -155,6 +155,9 @@ func TestAtLeastOne(t *testing.T) {
 	if !givenInt64ArrayStream(10).AtLeastOne(func(i int64) bool { return i > 5 }) {
 		t.Fatal()
 	}
+	if givenInt64ArrayStream(10).AtLeastOne(func(i int64) bool { return i > 50 }) {
+		t.Fatal()
+	}
 	// empty stream 'is true that none matches'
 	if givenInt64ArrayStream(0).AtLeastOne(func(i int64) bool { return i > 5 }) {
 		t.Fatal()
