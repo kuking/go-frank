@@ -14,7 +14,7 @@ func BenchmarkSumInt64(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.Reset()
-		if res, ok := s.SumInt64().First(); !ok || res != exp {
+		if res := s.SumInt64().First(); res.isEmpty() || res.Get() != exp {
 			b.Fatal(res)
 		}
 	}
@@ -31,7 +31,7 @@ func BenchmarkSumInt(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.Reset()
-		if res, ok := s.Sum().First(); !ok || res != exp {
+		if res := s.Sum().First(); !res.isPresent() || res.Get() != exp {
 			b.Fatal(res, exp)
 		}
 	}
@@ -47,7 +47,7 @@ func BenchmarkMap(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.Reset()
-		if res, ok := s.Map(func(a int64) int64 { return a + 1 }).SumInt64().First(); !ok || res != exp {
+		if res := s.Map(func(a int64) int64 { return a + 1 }).SumInt64().First(); res.isEmpty() || res.Get() != exp {
 			b.Fatal(res, exp)
 		}
 	}
@@ -64,7 +64,7 @@ func BenchmarkMapInt64(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.Reset()
-		if res, ok := s.MapInt64(func(a int64) int64 { return a + 1 }).SumInt64().First(); !ok || res != exp {
+		if res := s.MapInt64(func(a int64) int64 { return a + 1 }).SumInt64().First(); res.isEmpty() || res.Get() != exp {
 			b.Fatal(res, exp)
 		}
 	}
@@ -81,7 +81,7 @@ func BenchmarkReduce(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.Reset()
-		if res, ok := s.Reduce(func(a, b int64) int64 { return a + b }).First(); !ok || res != exp {
+		if res := s.Reduce(func(a, b int64) int64 { return a + b }).First(); res.isEmpty() || res.Get() != exp {
 			b.Fatal(res)
 		}
 	}
@@ -100,7 +100,7 @@ func BenchmarkReduceNA(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var int64reducer Int64SumReducer
 		s.Reset()
-		if res, ok := s.ReduceNA(&int64reducer).First(); !ok || res != exp {
+		if res := s.ReduceNA(&int64reducer).First(); res.isEmpty() || res.Get() != exp {
 			b.Fatal(res)
 		}
 	}

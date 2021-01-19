@@ -23,21 +23,21 @@ func TestSimple(t *testing.T) {
 }
 
 func TestReduce(t *testing.T) {
-	result, ok := givenArrayStream().
+	result := givenArrayStream().
 		Reduce(func(l, r string) string { return l + " " + r }).
 		First()
-	if !ok || result != "Hello how are you doing ?" {
-		t.Fatal()
+	if result.isEmpty() || result.Get().(string) != "Hello how are you doing ?" {
+		t.Fatal(result.Get())
 	}
 }
 
 func TestFirstLast(t *testing.T) {
-	result, ok := givenArrayStream().First()
-	if !ok || result != "Hello" {
+	result := givenArrayStream().First()
+	if result.isEmpty() || result.Get() != "Hello" {
 		t.Fatal()
 	}
-	result, ok = givenArrayStream().Last()
-	if !ok || result != "?" {
+	result = givenArrayStream().Last()
+	if result.isEmpty() || result.Get() != "?" {
 		t.Fatal()
 	}
 }
@@ -50,31 +50,31 @@ func TestCount(t *testing.T) {
 }
 
 func TestMap(t *testing.T) {
-	result, ok := givenArrayStream().
+	result := givenArrayStream().
 		Map(func(s string) int { return len(s) }).
 		Reduce(func(l, r int) int { return l + r }).
 		First()
-	if !ok || result != 20 {
+	if !result.isPresent() || result.Get() != 20 {
 		t.Fatal()
 	}
 }
 
 func TestSumInt64(t *testing.T) {
-	result, ok := givenArrayStream().
+	result := givenArrayStream().
 		Map(func(s string) int64 { return int64(len(s)) }).
 		SumInt64().
 		First()
-	if !ok || result != int64(20) {
+	if !result.isPresent() || result.Get() != int64(20) {
 		t.Fatal()
 	}
 }
 
 func TestFilter(t *testing.T) {
-	result, ok := givenArrayStream().
+	result := givenArrayStream().
 		Filter(func(s string) bool { return len(s) == 3 }).
 		Reduce(func(l, r string) string { return l + " " + r }).
 		First()
-	if !ok || result != "Hello doing ?" {
+	if result.isEmpty() || result.Get() != "Hello doing ?" {
 		t.Fatal(result)
 	}
 }

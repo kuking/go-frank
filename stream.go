@@ -48,8 +48,8 @@ type Stream interface {
 	IsClosed() bool
 
 	// Terminating methods
-	First() (interface{}, bool)
-	Last() (interface{}, bool)
+	First() Optional
+	Last() Optional
 	AsArray() []interface{}
 	Count() int          //LENGTH?
 	CountUint64() uint64 //LENGTH?
@@ -190,13 +190,6 @@ func (s *streamImpl) Reduce(op interface{}) *streamImpl {
 	return &ns
 }
 
-// This type enables allocation free reducers
-type Reducer interface {
-	First(interface{})
-	Next(interface{})
-	Result() interface{}
-}
-
 func (s *streamImpl) ReduceNA(reducer Reducer) *streamImpl {
 	ns := streamImpl{
 		closed: 0,
@@ -282,10 +275,6 @@ func (s *streamImpl) Filter(op interface{}) *streamImpl {
 	return &ns
 }
 
-type Filter interface {
-	Filter(interface{}) bool
-}
-
 func (s *streamImpl) FilterNA(filter Filter) *streamImpl {
 	ns := streamImpl{
 		closed: 0,
@@ -313,24 +302,25 @@ func (s *streamImpl) FilterNA(filter Filter) *streamImpl {
 //
 // --------------------------------------------------------------------------------------------------------------------
 
-func (s *streamImpl) First() (first interface{}, ok bool) {
+func (s *streamImpl) First() Optional {
 	read, closed := s.pull(s)
 	if closed {
-		return nil, false
+		return EmptyOptional()
 	}
-	return read, true
+
+	return OptionalOf(read)
 }
 
-func (s *streamImpl) Last() (last interface{}, ok bool) {
+func (s *streamImpl) Last() Optional {
 	read, closed := s.pull(s)
 	if closed {
-		return nil, false
+		return EmptyOptional()
 	}
 	for {
 		lastRead := read
 		read, closed = s.pull(s)
 		if closed {
-			return lastRead, true
+			return OptionalOf(lastRead)
 		}
 	}
 }
