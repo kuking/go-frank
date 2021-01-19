@@ -29,6 +29,22 @@ func TestReduce(t *testing.T) {
 	if result.isEmpty() || result.Get().(string) != "Hello how are you doing ?" {
 		t.Fatal(result.Get())
 	}
+	// one element reduce
+	if givenInt64ArrayStream(1).Reduce(func(l, r int64) int64 { return l + r }).First().Get() != int64(0) {
+		t.Fatal()
+	}
+	// zero elements reducer
+	if givenInt64ArrayStream(0).Reduce(func(l, r int64) int64 { return l + r }).First().isPresent() {
+		t.Fatal()
+	}
+	// one element reducerNA
+	if givenInt64ArrayStream(1).ReduceNA(&Int64SumReducer{}).First().Get() != int64(0) {
+		t.Fatal()
+	}
+	// zero elements reducerNA
+	if givenInt64ArrayStream(0).ReduceNA(&Int64SumReducer{}).First().isPresent() {
+		t.Fatal()
+	}
 }
 
 func TestFirstLast(t *testing.T) {
@@ -87,14 +103,23 @@ func TestFilter(t *testing.T) {
 	if result.isEmpty() || result.Get() != "Hello doing ?" {
 		t.Fatal(result)
 	}
+	// filterNA
+	result = givenStringArrayStream().
+		FilterNA(func(s interface{}) bool { return len(s.(string)) == 3 }).
+		Reduce(func(l, r string) string { return l + " " + r }).
+		First()
+	if result.isEmpty() || result.Get() != "Hello doing ?" {
+		t.Fatal(result)
+	}
 }
 
-func TestFilterNA(t *testing.T) {
-
-	//result := givenStringArrayStream().
-	//	FilterNA()
-
-
+func TestEmptyFirstLast(t *testing.T) {
+	if givenInt64ArrayStream(0).Last().isPresent() {
+		t.Fatal()
+	}
+	if givenInt64ArrayStream(0).First().isPresent() {
+		t.Fatal()
+	}
 }
 
 func givenStringArrayStream() *streamImpl {
