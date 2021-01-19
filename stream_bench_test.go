@@ -18,6 +18,7 @@ func BenchmarkSumInt64(b *testing.B) {
 			b.Fatal(res)
 		}
 	}
+	b.StopTimer()
 	b.ReportMetric(float64(size), "elems/op")
 }
 
@@ -37,6 +38,40 @@ func BenchmarkSumInt(b *testing.B) {
 	b.ReportMetric(float64(size), "elems/op")
 }
 
+func BenchmarkMap(b *testing.B) {
+	size := 1000000
+	exp := int64(size*(size-1)/2) + int64(size)
+	arr := givenInt64Array(size)
+	s := ArrayStream(arr)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.Reset()
+		if res, ok := s.Map(func(a int64) int64 { return a + 1 }).SumInt64().First(); !ok || res != exp {
+			b.Fatal(res, exp)
+		}
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(size), "elems/op")
+}
+
+func BenchmarkMapInt64(b *testing.B) {
+	size := 1000000
+	exp := int64(size*(size-1)/2) + int64(size)
+	arr := givenInt64Array(size)
+	s := ArrayStream(arr)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.Reset()
+		if res, ok := s.MapInt64(func(a int64) int64 { return a + 1 }).SumInt64().First(); !ok || res != exp {
+			b.Fatal(res, exp)
+		}
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(size), "elems/op")
+}
+
 func BenchmarkReduce(b *testing.B) {
 	size := 1000000
 	exp := int64(size * (size - 1) / 2)
@@ -50,6 +85,7 @@ func BenchmarkReduce(b *testing.B) {
 			b.Fatal(res)
 		}
 	}
+	b.StopTimer()
 	b.ReportMetric(float64(size), "elems/op")
 }
 
@@ -68,6 +104,7 @@ func BenchmarkReduceNA(b *testing.B) {
 			b.Fatal(res)
 		}
 	}
+	b.StopTimer()
 	b.ReportMetric(float64(size), "elems/op")
 }
 
@@ -83,6 +120,7 @@ func BenchmarkFilter(b *testing.B) {
 			b.Fatal(res)
 		}
 	}
+	b.StopTimer()
 	b.ReportMetric(float64(size), "elems/op")
 }
 
@@ -100,8 +138,11 @@ func BenchmarkFilterNA(b *testing.B) {
 			b.Fatal(res)
 		}
 	}
+	b.StopTimer()
 	b.ReportMetric(float64(size), "elems/op")
 }
+
+// -------------------------------------------------------------------------------------------------------------------
 
 func givenIntArray(count int) []interface{} {
 	elems := make([]interface{}, count)

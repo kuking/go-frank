@@ -23,6 +23,7 @@ type Stream interface {
 	// Transformations
 	Map(op interface{}) *Stream
 	MapInt(func(int) int) *Stream
+
 	Reduce(op interface{}) *Stream
 
 	// Non-Allocation Reducer
@@ -242,7 +243,8 @@ func (s *streamImpl) Map(op interface{}) *streamImpl {
 	return &ns
 }
 
-func (s *streamImpl) MapInt(op func(int) int) *streamImpl {
+// MapInt64 requires one allocation per element (2 for the generic Map)
+func (s *streamImpl) MapInt64(op func(int64) int64) *streamImpl {
 	ns := streamImpl{
 		closed: 0,
 		prev:   s,
@@ -252,7 +254,7 @@ func (s *streamImpl) MapInt(op func(int) int) *streamImpl {
 		if closed {
 			return nil, true
 		}
-		return op(value.(int)), false
+		return op(value.(int64)), false
 	}
 	return &ns
 }
