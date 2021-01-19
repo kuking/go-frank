@@ -23,7 +23,6 @@ func BenchmarkSumInt64(b *testing.B) {
 	b.ReportMetric(float64(size), "elems/op")
 }
 
-
 func BenchmarkSumInt(b *testing.B) {
 	size := 1000000
 	exp := size * (size - 1) / 2
@@ -143,7 +142,6 @@ func BenchmarkFilterNA(b *testing.B) {
 	b.ReportMetric(float64(size), "elems/op")
 }
 
-
 func BenchmarkGeneratorSumInt64(b *testing.B) {
 	total := b.N
 	exp := int64(total * (total - 1) / 2)
@@ -163,6 +161,17 @@ func BenchmarkGeneratorFilterNA(b *testing.B) {
 	b.ResetTimer()
 	if res := s.FilterNA(func(i interface{}) bool { return i.(int64)%2 == 0 }).Count(); res != (total+1)/2 {
 		b.Fatal(fmt.Sprintf("res %v != %v exp ; total=%v", res, (total+1)/2, total))
+	}
+	b.StopTimer()
+}
+
+func BenchmarkGeneratorCounter(b *testing.B) {
+	total := b.N
+	s := givenInt64StreamGenerator(total)
+	b.ReportAllocs()
+	b.ResetTimer()
+	if res := s.Count(); res != total {
+		b.Fatal()
 	}
 	b.StopTimer()
 }

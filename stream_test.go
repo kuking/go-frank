@@ -1,7 +1,9 @@
 package go_frank
 
 import (
+	"runtime"
 	"testing"
+	"time"
 )
 
 func TestSimplest(t *testing.T) {
@@ -22,16 +24,19 @@ func TestSimple(t *testing.T) {
 	}
 }
 
-func TestStreamGenerator(t *testing.T) {
+func TestGenerator(t *testing.T) {
 	count := 0
 	stream := StreamGenerator(func() Optional {
 		count++
-		if count <= 1000 {
+		if count <= 10*1024 {
 			return OptionalOf(count)
 		}
 		return EmptyOptional()
 	})
-	if stream.Count() != 1000 {
+	runtime.Gosched() // to let the ring-buffer fill, so coverage
+	time.Sleep(1 * time.Millisecond)
+	runtime.Gosched()
+	if stream.Count() != 10*1024 {
 		t.Fatal()
 	}
 }

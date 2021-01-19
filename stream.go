@@ -103,7 +103,7 @@ func ArrayStream(elems []interface{}) (stream *streamImpl) {
 }
 
 func StreamGenerator(generator func() Optional) (ream *streamImpl) {
-	s := EmptyStream(256)
+	s := EmptyStream(1024)
 	go streamGeneratorFeeder(s, generator)
 	return s
 }
