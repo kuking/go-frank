@@ -71,8 +71,9 @@ type Stream interface {
 
 type streamImpl struct {
 	ringBuffer []interface{}
-	ringRead   int32
-	ringWrite  int32
+	ringRead   uint64
+	ringWrite  uint64
+	ringWAlloc uint64
 	closed     int32
 	pull       func(s *streamImpl) (read interface{}, closed bool)
 	prev       *streamImpl
@@ -84,6 +85,7 @@ func EmptyStream(capacity int) (stream *streamImpl) {
 		ringBuffer: make([]interface{}, capacity),
 		ringRead:   0,
 		ringWrite:  0,
+		ringWAlloc: 0,
 		closed:     0,
 		pull:       ringPull,
 		prev:       nil,
@@ -102,7 +104,6 @@ func ArrayStream(elems []interface{}) (stream *streamImpl) {
 
 func StreamGenerator(generator func() Optional) (ream *streamImpl) {
 	s := EmptyStream(256)
-	var _ Stream = s
 	go streamGeneratorFeeder(s, generator)
 	return s
 }
@@ -117,13 +118,18 @@ func streamGeneratorFeeder(s Stream, generator func() Optional) {
 }
 
 func (s *streamImpl) Feed(elem interface{}) {
+	rbs := uint64(len(s.ringBuffer))
 	for i := 0; ; i++ {
-		ringRead := atomic.LoadInt32(&s.ringRead)
-		ringWrite := atomic.LoadInt32(&s.ringWrite)
-		ringWriteNext := (ringWrite + 1) % int32(len(s.ringBuffer))
-		if ringWriteNext != ringRead {
-			if atomic.CompareAndSwapInt32(&s.ringWrite, ringWrite, ringWriteNext) {
-				s.ringBuffer[ringWrite] = elem
+		ringRead := atomic.LoadUint64(&s.ringRead)
+		ringWrite := atomic.LoadUint64(&s.ringWrite)
+		ringWAlloc := atomic.LoadUint64(&s.ringWAlloc)
+		ringWriteNextVal := ringWrite + 1
+		if ringWrite == ringWAlloc && ringWriteNextVal-uint64(len(s.ringBuffer)) != ringRead {
+			if atomic.CompareAndSwapUint64(&s.ringWAlloc, ringWAlloc, ringWriteNextVal) {
+				s.ringBuffer[ringWrite%rbs] = elem
+				if !atomic.CompareAndSwapUint64(&s.ringWrite, ringWrite, ringWriteNextVal) {
+					panic("failed to commit allocated write in ring-buffer")
+				}
 				return
 			}
 		}
@@ -133,13 +139,16 @@ func (s *streamImpl) Feed(elem interface{}) {
 }
 
 func ringPull(s *streamImpl) (read interface{}, closer bool) {
+	rbs := uint64(len(s.ringBuffer))
 	for i := 0; ; i++ {
-		ringRead := atomic.LoadInt32(&s.ringRead)
-		ringWrite := atomic.LoadInt32(&s.ringWrite)
-		if ringRead != ringWrite {
-			ringReadNext := (ringRead + 1) % int32(len(s.ringBuffer))
-			if atomic.CompareAndSwapInt32(&s.ringRead, ringRead, ringReadNext) {
-				return s.ringBuffer[ringRead], false
+		ringRead := atomic.LoadUint64(&s.ringRead)
+		ringWrite := atomic.LoadUint64(&s.ringWrite)
+		ringWAlloc := atomic.LoadUint64(&s.ringWAlloc)
+		if ringRead != ringWrite && ringWrite == ringWAlloc {
+			ringReadNextVal := ringRead + 1
+			val := s.ringBuffer[ringRead%rbs]
+			if atomic.CompareAndSwapUint64(&s.ringRead, ringRead, ringReadNextVal) {
+				return val, false
 			}
 		}
 		runtime.Gosched()
@@ -152,8 +161,8 @@ func ringPull(s *streamImpl) (read interface{}, closer bool) {
 
 func (s *streamImpl) Close() {
 	for i := 0; ; i++ {
-		ringRead := atomic.LoadInt32(&s.ringRead)
-		ringWrite := atomic.LoadInt32(&s.ringWrite)
+		ringRead := atomic.LoadUint64(&s.ringRead)
+		ringWrite := atomic.LoadUint64(&s.ringWrite)
 		if ringRead == ringWrite {
 			atomic.StoreInt32(&s.closed, 1)
 			return
@@ -169,7 +178,7 @@ func (s *streamImpl) IsClosed() bool {
 
 // hack, needs more assertions around resetting non-resettable buffers
 func (s *streamImpl) Reset() {
-	atomic.StoreInt32(&s.ringRead, 0)
+	atomic.StoreUint64(&s.ringRead, 0)
 	if atomic.LoadInt32(&s.closed) != 0 {
 		atomic.StoreInt32(&s.closed, 0)
 		go s.Close()
