@@ -22,6 +22,20 @@ func TestSimple(t *testing.T) {
 	}
 }
 
+func TestStreamGenerator(t *testing.T) {
+	count := 0
+	stream := StreamGenerator(func() Optional {
+		count++
+		if count <= 1000 {
+			return OptionalOf(count)
+		}
+		return EmptyOptional()
+	})
+	if stream.Count() != 1000 {
+		t.Fatal()
+	}
+}
+
 func TestReduce(t *testing.T) {
 	result := givenStringArrayStream().
 		Reduce(func(l, r string) string { return l + " " + r }).

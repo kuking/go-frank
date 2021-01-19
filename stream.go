@@ -22,26 +22,26 @@ type Stream interface {
 
 	// Transformations
 
-	Map(op interface{}) *Stream
-	MapInt(func(int) int) *Stream
+	Map(op interface{}) Stream
+	MapInt64(func(int64) int64) Stream
 
-	Reduce(op interface{}) *Stream
+	Reduce(op interface{}) Stream
 
 	// Non-Allocation Reducer
-	ReduceNA(reducer Reducer) *Stream
+	ReduceNA(reducer Reducer) Stream
 
-	Filter(op interface{}) *Stream
-	FilterNA(func(interface{}) bool) *Stream
-	//Skip(int) *Stream
-	//SkipRight(int) *Stream
-	//DropWhile(op interface{}) *Stream
+	Filter(op interface{}) Stream
+	FilterNA(func(interface{}) bool) Stream
+	//Skip(int) Stream
+	//SkipRight(int) Stream
+	//DropWhile(op interface{}) Stream
 	//Find(interface{}) *Stream // can be a value or a function
-	//FlatMap() *Stream
+	//FlatMap() Stream
 	// Reverse?
 
 	// non-allocation sum int64
-	Sum() *Stream
-	SumInt64() *Stream
+	Sum() Stream
+	SumInt64() Stream
 
 	//Sort
 
@@ -98,6 +98,22 @@ func ArrayStream(elems []interface{}) (stream *streamImpl) {
 	}
 	go st.Close()
 	return st
+}
+
+func StreamGenerator(generator func() Optional) (ream *streamImpl) {
+	s := EmptyStream(256)
+	var _ Stream = s
+	go streamGeneratorFeeder(s, generator)
+	return s
+}
+
+func streamGeneratorFeeder(s Stream, generator func() Optional) {
+	opt := generator()
+	for ; opt.isPresent(); {
+		s.Feed(opt.Get())
+		opt = generator()
+	}
+	s.Close()
 }
 
 func (s *streamImpl) Feed(elem interface{}) {
@@ -166,7 +182,7 @@ func (s *streamImpl) Reset() {
 //
 // --------------------------------------------------------------------------------------------------------------------
 
-func (s *streamImpl) Reduce(op interface{}) *streamImpl {
+func (s *streamImpl) Reduce(op interface{}) Stream {
 	ns := streamImpl{
 		closed: 0,
 		prev:   s,
@@ -191,7 +207,7 @@ func (s *streamImpl) Reduce(op interface{}) *streamImpl {
 	return &ns
 }
 
-func (s *streamImpl) ReduceNA(reducer Reducer) *streamImpl {
+func (s *streamImpl) ReduceNA(reducer Reducer) Stream {
 	ns := streamImpl{
 		closed: 0,
 		prev:   s,
@@ -213,15 +229,15 @@ func (s *streamImpl) ReduceNA(reducer Reducer) *streamImpl {
 	return &ns
 }
 
-func (s *streamImpl) Sum() *streamImpl {
+func (s *streamImpl) Sum() Stream {
 	return s.ReduceNA(&IntSumReducer{})
 }
 
-func (s *streamImpl) SumInt64() *streamImpl {
+func (s *streamImpl) SumInt64() Stream {
 	return s.ReduceNA(&Int64SumReducer{})
 }
 
-func (s *streamImpl) Map(op interface{}) *streamImpl {
+func (s *streamImpl) Map(op interface{}) Stream {
 	ns := streamImpl{
 		closed: 0,
 		prev:   s,
@@ -238,7 +254,7 @@ func (s *streamImpl) Map(op interface{}) *streamImpl {
 }
 
 // MapInt64 requires one allocation per element (2 for the generic Map)
-func (s *streamImpl) MapInt64(op func(int64) int64) *streamImpl {
+func (s *streamImpl) MapInt64(op func(int64) int64) Stream {
 	ns := streamImpl{
 		closed: 0,
 		prev:   s,
@@ -253,7 +269,7 @@ func (s *streamImpl) MapInt64(op func(int64) int64) *streamImpl {
 	return &ns
 }
 
-func (s *streamImpl) Filter(op interface{}) *streamImpl {
+func (s *streamImpl) Filter(op interface{}) Stream {
 	ns := streamImpl{
 		closed: 0,
 		prev:   s,
@@ -276,7 +292,7 @@ func (s *streamImpl) Filter(op interface{}) *streamImpl {
 	return &ns
 }
 
-func (s *streamImpl) FilterNA(op func(interface{}) bool) *streamImpl {
+func (s *streamImpl) FilterNA(op func(interface{}) bool) Stream {
 	ns := streamImpl{
 		closed: 0,
 		prev:   s,
