@@ -69,12 +69,19 @@ func (s *streamImpl) IsClosed() bool {
 
 // Resets the stream position to zero, not always possible.
 // hack, needs more assertions around resetting non-resettable buffers
-func (s *streamImpl) Reset() {
-	atomic.StoreUint64(&s.ringRead, 0)
-	if atomic.LoadInt32(&s.closed) != 0 {
-		atomic.StoreInt32(&s.closed, 0)
-		go s.Close()
+func (s *streamImpl) Reset() uint64 {
+	if s.prev == nil {
+		if atomic.LoadUint64(&s.ringWrite) > uint64(len(s.ringBuffer)) {
+			return atomic.LoadUint64(&s.ringRead)
+		}
+		atomic.StoreUint64(&s.ringRead, 0)
+		if atomic.LoadInt32(&s.closed) != 0 {
+			atomic.StoreInt32(&s.closed, 0)
+			go s.Close()
+		}
+		return 0
 	}
+	return 0
 }
 
 func (s *streamImpl) CurrAbsPos() uint64 {
@@ -116,4 +123,3 @@ func (s *streamImpl) Pull() Optional {
 	}
 	return OptionalOf(value)
 }
-

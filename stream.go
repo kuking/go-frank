@@ -11,7 +11,7 @@ type Stream interface {
 	Feed(elem interface{})
 	Close()
 	IsClosed() bool
-	Reset()
+	Reset() uint64
 
 	// Positioning operations
 
@@ -129,7 +129,7 @@ func StreamGenerator(generator func() Optional) Stream {
 
 func streamGeneratorFeeder(s Stream, generator func() Optional) {
 	opt := generator()
-	for ; opt.isPresent(); {
+	for opt.isPresent() {
 		s.Feed(opt.Get())
 		opt = generator()
 	}

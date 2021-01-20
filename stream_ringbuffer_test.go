@@ -72,3 +72,39 @@ func TestPositionOnRollOverStream(t *testing.T) {
 		}
 	}
 }
+
+func TestReset(t *testing.T) {
+	s := givenInt64ArrayStream(1024)
+	for i := 0; i < 512; i++ {
+		s.Pull()
+	}
+	// it can be reset now
+	if s.Reset() != 0 {
+		t.Fatal()
+	}
+	for i := 0; i < 1024; i++ {
+		s.Pull()
+		s.Feed(i)
+	}
+	// after the ring buffer has loop around, it can not be reset anymore
+	if s.Reset() != s.CurrAbsPos() {
+		t.Fatal()
+	}
+
+	// a closed stream can be reset if previous conditions apply
+	s = givenInt64ArrayStream(1024)
+	s.AsArray()
+	if !s.IsClosed() {
+		t.Fatal("this should be closed!")
+	}
+	if s.Reset() != 0 {
+		t.Fatal()
+	}
+
+	// a derived (not root) stream can not be reset
+	s = givenInt64ArrayStream(1024).MapInt64(func(i int64) int64 { return i + 1 })
+	s.Pull()
+	if s.Reset() != 0 {
+		t.Fatal()
+	}
+}
