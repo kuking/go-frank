@@ -1,6 +1,9 @@
 package go_frank
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestReduce(t *testing.T) {
 	result := givenStringArrayStream().

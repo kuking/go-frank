@@ -8,7 +8,6 @@ import "reflect"
 //
 // --------------------------------------------------------------------------------------------------------------------
 
-
 func (s *streamImpl) Reduce(op interface{}) Stream {
 	ns := streamImpl{
 		closed: 0,
@@ -125,32 +124,18 @@ func (s *streamImpl) FilterNA(op func(interface{}) bool) Stream {
 		prev:   s,
 	}
 	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
-		var elem interface{}
 		closed = false
 		for !closed {
-			elem, closed = ns.prev.pull(ns.prev)
+			read, closed = ns.prev.pull(ns.prev)
 			if !closed {
-				if !op(elem) {
-					return elem, false
+				if !op(read) {
+					return
 				}
 			}
 		}
-		return nil, true
+		return
 	}
 	return &ns
-}
-
-// converts a Stream of strings into either a Map[string]interface{} or a []interface{}, depending on asMap value.
-// If firstRowIsColumnName is set, it will pick the column name from the first row, otherwise the column names will be
-// sequential numbers starting from 1.
-func (s *streamImpl) CSVasMap(firstRowIsColumnName bool, asMap bool) Stream {
-	return nil
-}
-
-// converts a Map[string]interface{} or []interface{} into a comma separated (and escaped if string vs number), adding
-// an extra element at the beginning with the column names, if provided
-func (s *streamImpl) MapAsCSV(firstRowHasColumnName bool) Stream {
-	return nil
 }
 
 // converts the stream elements to the type provided; if the coerce parameter is set to true, it will try to convert the
@@ -164,4 +149,20 @@ func (s *streamImpl) EnsureTypeEx(t reflect.Type, coerce bool, dropIfNotPossible
 // Ensure the types trying to coerce and dropping elements that can not be converted
 func (s *streamImpl) EnsureType(t reflect.Type) Stream {
 	return s.EnsureTypeEx(t, true, true)
+}
+
+// Modifies the Stream element in-place, avoids non-allocating operation
+func (s *streamImpl) ModifyNA(fn func(interface{})) Stream {
+	ns := streamImpl{
+		closed: 0,
+		prev:   s,
+	}
+	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+		read, closed = ns.prev.pull(ns.prev)
+		if !closed {
+			fn(read)
+		}
+		return
+	}
+	return &ns
 }

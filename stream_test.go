@@ -41,6 +41,18 @@ func TestGenerator(t *testing.T) {
 	}
 }
 
+func TestArrayStream(t *testing.T) {
+	if ArrayStream([]string{"hi", "hello"}).Count() != 2 {
+		t.Fatal()
+	}
+	if ArrayStream("hi").Count() != 1 {
+		t.Fatal()
+	}
+	if !ArrayStream(nil).IsEmpty() {
+		t.Fatal()
+	}
+}
+
 // -------------------------------------------------------------------------------------------------------------------
 
 func givenInt64StreamGenerator(total int) Stream {

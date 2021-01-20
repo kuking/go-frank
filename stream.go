@@ -11,12 +11,10 @@ type Stream interface {
 	Feed(elem interface{})
 	Close()
 	IsClosed() bool
-	Reset() uint64
 
 	// Positioning operations
-
+	Reset() uint64
 	Skip(int) Stream
-
 	//SkipWhile(cmd interface{}) Stream
 	//SkipWhileNA(func(interface{}) bool) Stream
 	//Find(cmp interface{}) Stream // can be a value or a function
@@ -33,30 +31,25 @@ type Stream interface {
 
 	Map(op interface{}) Stream
 	MapInt64(func(int64) int64) Stream
-
+	ModifyNA(func(interface{})) Stream
 	Reduce(op interface{}) Stream
-
-	// Non-Allocation Reducer
 	ReduceNA(reducer Reducer) Stream
-
 	Filter(op interface{}) Stream
 	FilterNA(func(interface{}) bool) Stream
 	//SkipRight(int) Stream
 	//FlatMap() Stream
-	// Reverse?
+	//Reverse?
 
-	// non-allocation sum int64
 	Sum() Stream
 	SumInt64() Stream
 
 	EnsureTypeEx(t reflect.Type, coerce bool, dropIfNotPossible bool) Stream
 	EnsureType(t reflect.Type) Stream
 
-	//JsonToMap() Stream
-	//MapToJson() Stream
-
-	CSVasMap(firstRowIsColumnName bool, asMap bool) Stream
-	MapAsCSV(firstRowHasColumnName bool) Stream
+	JsonToMap() Stream
+	MapToJson() Stream
+	CSVasMap(firstRowIsHeader bool, asMap bool) Stream
+	MapAsCSV(firstRowIsHeader bool) Stream
 
 	//Sort
 
@@ -112,13 +105,22 @@ func EmptyStream(capacity int) Stream {
 	}
 }
 
-func ArrayStream(elems []interface{}) Stream {
-	st := EmptyStream(len(elems) + 1)
-	for _, elem := range elems {
-		st.Feed(elem)
+func ArrayStream(elems interface{}) Stream {
+	var s Stream
+	slice := reflect.ValueOf(elems)
+	if slice.Kind() == reflect.Slice {
+		s = EmptyStream(slice.Len() + 1)
+		for i := 0; i < slice.Len(); i++ {
+			s.Feed(slice.Index(i).Interface())
+		}
+	} else {
+		s = EmptyStream(2)
+		if elems != nil {
+			s.Feed(elems)
+		}
 	}
-	go st.Close()
-	return st
+	go s.Close()
+	return s
 }
 
 func StreamGenerator(generator func() Optional) Stream {
