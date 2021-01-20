@@ -151,7 +151,8 @@ func (s *streamImpl) EnsureType(t reflect.Type) Stream {
 	return s.EnsureTypeEx(t, true, true)
 }
 
-// Modifies the Stream element in-place, avoids non-allocating operation
+// Modifies the Stream element in-place, avoids non-allocating operation. Given the root pointer can not be changed,
+// this can only be used with struct or containers i.e. maps, etc.
 func (s *streamImpl) ModifyNA(fn func(interface{})) Stream {
 	ns := streamImpl{
 		closed: 0,

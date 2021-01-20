@@ -1,7 +1,6 @@
 package go_frank
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -75,5 +74,22 @@ func TestFilter(t *testing.T) {
 		First()
 	if result.isEmpty() || result.Get() != "Hello doing ?" {
 		t.Fatal(result)
+	}
+}
+
+func TestModifyNA(t *testing.T) {
+	result := ArrayStream(map[string]string{"a": "1"}).
+		ModifyNA(func(value interface{}) {
+			m := value.(map[string]string)
+			m["b"] = "2"
+		}).
+		First()
+
+	if result.isEmpty() {
+		t.Fatal()
+	}
+	m := result.Get().(map[string]string)
+	if m["a"] != "1" || m["b"] != "2" || len(m) != 2 {
+		t.Fatal()
 	}
 }

@@ -142,6 +142,25 @@ func BenchmarkFilterNA(b *testing.B) {
 	b.ReportMetric(float64(size), "elems/op")
 }
 
+func BenchmarkModifyNA(b *testing.B) {
+	size := 1000000
+	arr := make([]interface{}, size)
+	for i := 0; i < size; i++ {
+		arr[i] = map[string]int{"A": 1}
+	}
+	s := ArrayStream(arr)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.Reset()
+		if res := s.ModifyNA(func(i interface{}) { i.(map[string]int)["B"] = 2 }).Count(); res != size {
+			b.Fatal(res)
+		}
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(size), "elems/op")
+}
+
 func BenchmarkGeneratorSumInt64(b *testing.B) {
 	total := b.N
 	exp := int64(total * (total - 1) / 2)
@@ -175,4 +194,3 @@ func BenchmarkGeneratorCounter(b *testing.B) {
 	}
 	b.StopTimer()
 }
-
