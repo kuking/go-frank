@@ -1,30 +1,39 @@
 package go_frank
 
-import "testing"
-
-const (
-	JSON_EMPLOYEE = `
-{
-	"employee": {
-	"name":       "sonoo",
-	"salary":      56000,
-	"married":    true
-	}
-}
-`
+import (
+	"testing"
 )
 
-func testJson(t *testing.T) {
-	s := ArrayStream([]string{JSON_EMPLOYEE}).
+const (
+	jsonEmployee = `{
+	"employee": {
+		"name":    "robert",
+		"salary":  56000,
+		"married": false
+	}
+}`
+)
+
+func TestJson(t *testing.T) {
+	s := ArrayStream([]interface{}{jsonEmployee, "not a json", "[]", []byte("{}"), 123}).
 		JsonToMap().
-		Map(func(json map[string]interface{}) map[string]interface{} {
-			return json
+		ModifyNA(func(jsonI interface{}) {
+			switch jsonI.(type) {
+			case map[string]interface{}:
+				json := jsonI.(map[string]interface{})
+				if len(json) != 0 {
+					employee := json["employee"].(map[string]interface{})
+					employee["salary"] = 1_000_000
+					employee["married"] = false
+				}
+			}
 		}).
 		MapToJson().
 		AsArray()
-
-	if len(s) != 1 || s[0] != "zc" {
+	if len(s) != 3 ||
+		s[0].(string) != "{\"employee\":{\"married\":false,\"name\":\"robert\",\"salary\":1000000}}" ||
+		s[1].(string) != "[]" ||
+		s[2].(string) != "{}" {
 		t.Fatal(s)
 	}
-
 }

@@ -1,5 +1,7 @@
 package go_frank
 
+import "encoding/json"
+
 // converts a Stream of strings into either a Map[string]interface{} or a []interface{}, depending on asMap value.
 // If firstRowIsHeader is set, it will pick the column name from the first row, otherwise the column names will be
 // sequential numbers starting from 1.
@@ -14,8 +16,43 @@ func (s *streamImpl) MapAsCSV(firstRowIsHeader bool) Stream {
 }
 
 func (s *streamImpl) JsonToMap() Stream {
-	return nil
+	return s.Map(func(val interface{}) interface{} {
+		var data []byte
+		switch val.(type) {
+		case string:
+			data = []byte(val.(string))
+		case []byte:
+			data = val.([]byte)
+		default:
+			return nil
+		}
+		var result interface{}
+		err := json.Unmarshal(data, &result)
+		if err != nil {
+			return nil
+		}
+		return result
+	})
 }
+
 func (s *streamImpl) MapToJson() Stream {
-	return nil
+	ns := streamImpl{
+		closed: 0,
+		prev:   s,
+	}
+	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+		read, closed = ns.prev.pull(ns.prev)
+		for ; !closed; {
+			if read != nil {
+				res, err := json.Marshal(read)
+				if err != nil {
+					return nil, closed
+				}
+				return string(res), closed
+			}
+			read, closed = ns.prev.pull(ns.prev)
+		}
+		return
+	}
+	return &ns
 }
