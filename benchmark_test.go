@@ -176,31 +176,3 @@ func BenchmarkGeneratorCounter(b *testing.B) {
 	b.StopTimer()
 }
 
-// -------------------------------------------------------------------------------------------------------------------
-
-func givenInt64StreamGenerator(total int) Stream {
-	count := int64(0)
-	return StreamGenerator(func() Optional {
-		count++
-		if count <= int64(total) {
-			return OptionalOf(count)
-		}
-		return EmptyOptional()
-	})
-}
-
-func givenIntArray(count int) []interface{} {
-	elems := make([]interface{}, count)
-	for i := 0; i < len(elems); i++ {
-		elems[i] = i
-	}
-	return elems
-}
-
-func givenInt64Array(count int) []interface{} {
-	elems := make([]interface{}, count)
-	for i := 0; i < len(elems); i++ {
-		elems[i] = int64(i)
-	}
-	return elems
-}
