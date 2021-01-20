@@ -93,3 +93,17 @@ func TestModifyNA(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+func TestNilThroughTransformers(t *testing.T) {
+	r := ArrayStream([]interface{}{nil, nil, nil}).
+		Map(func(i interface{}) interface{} { return nil }).
+		ModifyNA(func(i interface{}) {}).
+		Filter(func(i interface{}) bool { return i != nil }).
+		FilterNA(func(i interface{}) bool { return i != nil }).
+		AsArray()
+
+	if len(r) != 3 || r[0] != nil || r[1] != nil || r[2] != nil {
+		t.Fatal(r)
+	}
+
+}

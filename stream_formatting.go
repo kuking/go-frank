@@ -18,7 +18,7 @@ func (s *streamImpl) MapAsCSV(firstRowIsHeader bool) Stream {
 }
 
 // Unmarshalls a string or an []byte into a map[string]interface{} or an []interface{}. If it can not be parsed as a
-// valid JSON object, it will map it to nil.
+// valid JSON object, it will map into a nil.
 func (s *streamImpl) JsonToMap() Stream {
 	return s.Map(func(val interface{}) interface{} {
 		var data []byte

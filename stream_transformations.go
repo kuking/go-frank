@@ -1,12 +1,22 @@
 package go_frank
 
-import "reflect"
+import (
+	"reflect"
+)
 
 // --------------------------------------------------------------------------------------------------------------------
 //
 // Transformation methods
 //
 // --------------------------------------------------------------------------------------------------------------------
+
+func reflected(val interface{}) reflect.Value {
+	if val == nil {
+		return reflect.Zero(reflect.TypeOf((*error)(nil)).Elem()) //XXX: error?
+	} else {
+		return reflect.ValueOf(val)
+	}
+}
 
 func (s *streamImpl) Reduce(op interface{}) Stream {
 	ns := streamImpl{
@@ -24,10 +34,8 @@ func (s *streamImpl) Reduce(op interface{}) Stream {
 			if closed {
 				return left, false
 			}
-			rLeft := reflect.ValueOf(left)
-			rRight := reflect.ValueOf(right)
 			fnop := reflect.ValueOf(op)
-			left = fnop.Call([]reflect.Value{rLeft, rRight})[0].Interface()
+			left = fnop.Call([]reflect.Value{reflected(left), reflected(right)})[0].Interface()
 		}
 	}
 	return &ns
@@ -74,10 +82,7 @@ func (s *streamImpl) Map(op interface{}) Stream {
 		if closed {
 			return nil, true
 		}
-		if value == nil {
-			return nil, closed
-		}
-		return fnop.Call([]reflect.Value{reflect.ValueOf(value)})[0].Interface(), false
+		return fnop.Call([]reflect.Value{reflected(value)})[0].Interface(), false
 	}
 	return &ns
 }
@@ -110,8 +115,7 @@ func (s *streamImpl) Filter(op interface{}) Stream {
 		for !closed {
 			elem, closed = ns.prev.pull(ns.prev)
 			if !closed {
-				filtered := fnop.Call([]reflect.Value{reflect.ValueOf(elem)})[0].Bool()
-				if !filtered {
+				if !fnop.Call([]reflect.Value{reflected(elem)})[0].Bool() {
 					return elem, false
 				}
 			}
