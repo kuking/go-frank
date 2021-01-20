@@ -30,10 +30,12 @@ func TestJson(t *testing.T) {
 		}).
 		MapToJson().
 		AsArray()
-	if len(s) != 3 ||
+	if len(s) != 5 ||
 		s[0].(string) != "{\"employee\":{\"married\":false,\"name\":\"robert\",\"salary\":1000000}}" ||
-		s[1].(string) != "[]" ||
-		s[2].(string) != "{}" {
+		s[1] != nil ||
+		s[2].(string) != "[]" ||
+		s[3].(string) != "{}" ||
+		s[4] != nil {
 		t.Fatal(s)
 	}
 }

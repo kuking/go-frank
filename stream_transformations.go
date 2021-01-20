@@ -74,6 +74,9 @@ func (s *streamImpl) Map(op interface{}) Stream {
 		if closed {
 			return nil, true
 		}
+		if value == nil {
+			return nil, closed
+		}
 		return fnop.Call([]reflect.Value{reflect.ValueOf(value)})[0].Interface(), false
 	}
 	return &ns

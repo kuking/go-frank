@@ -1,6 +1,8 @@
 package go_frank
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // converts a Stream of strings into either a Map[string]interface{} or a []interface{}, depending on asMap value.
 // If firstRowIsHeader is set, it will pick the column name from the first row, otherwise the column names will be
@@ -15,6 +17,8 @@ func (s *streamImpl) MapAsCSV(firstRowIsHeader bool) Stream {
 	return nil
 }
 
+// Unmarshalls a string or an []byte into a map[string]interface{} or an []interface{}. If it can not be parsed as a
+// valid JSON object, it will map it to nil.
 func (s *streamImpl) JsonToMap() Stream {
 	return s.Map(func(val interface{}) interface{} {
 		var data []byte
@@ -35,24 +39,13 @@ func (s *streamImpl) JsonToMap() Stream {
 	})
 }
 
+// Maps the object into a json string representation, if it can not be encoded, it will be encoded into a nil value
 func (s *streamImpl) MapToJson() Stream {
-	ns := streamImpl{
-		closed: 0,
-		prev:   s,
-	}
-	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
-		read, closed = ns.prev.pull(ns.prev)
-		for ; !closed; {
-			if read != nil {
-				res, err := json.Marshal(read)
-				if err != nil {
-					return nil, closed
-				}
-				return string(res), closed
-			}
-			read, closed = ns.prev.pull(ns.prev)
+	return s.Map(func(val interface{}) interface{} {
+		res, err := json.Marshal(val)
+		if err != nil {
+			return nil
 		}
-		return
-	}
-	return &ns
+		return string(res)
+	})
 }
