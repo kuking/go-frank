@@ -1,7 +1,6 @@
 package go_frank
 
 import (
-	"os"
 	"reflect"
 )
 
@@ -64,13 +63,11 @@ type Stream interface {
 	NoneMatch(interface{}) bool
 	AtLeastOne(interface{}) bool
 	ForEach(op interface{})
-	ToTextFile(f os.File)
 	//IndexOf(interface()) int // can be a value or a function
 	//Distinct() []interface{}
 	//EndsWith()
 
-	// Publish(uri string)
-
+	Publish(uri string)
 }
 
 // --------------------------------------------------------------------------------------------------------------------
