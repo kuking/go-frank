@@ -19,7 +19,7 @@ func TestGobSerialiser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if size != 24 {
+	if size != 45 {
 		t.Fatal(size)
 	}
 
@@ -29,7 +29,7 @@ func TestGobSerialiser(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	recovered, err := gobe.Decode(buf[0:])
+	recovered, err := gobe.Decode(buf[0:size])
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -27,7 +27,7 @@ type GobSerialiser struct{}
 
 func (g *GobSerialiser) EncodedSize(elem interface{}) (size uint64, err error) {
 	var buf bytes.Buffer
-	err = gob.NewEncoder(&buf).Encode(elem)
+	err = gob.NewEncoder(&buf).Encode(&elem)
 	if err != nil {
 		return 0, err
 	}
