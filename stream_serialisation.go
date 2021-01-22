@@ -5,6 +5,8 @@ import (
 	"encoding/gob"
 )
 
+// TODO: this has to handle nil serialisation
+
 type StreamSerialiser interface {
 	EncodedSize(elem interface{}) (size uint64, err error)
 	Encode(elem interface{}, buffer []byte) (err error)
