@@ -43,3 +43,21 @@ func (g *GobSerialiser) Decode(slice []byte) (elem interface{}, err error) {
 	err = gob.NewDecoder(buf).Decode(&elem)
 	return
 }
+
+type ByteArraySerialiser struct{}
+
+func (s ByteArraySerialiser) EncodedSize(elem interface{}) (size uint64, err error) {
+	arr := elem.([]byte)
+	return uint64(len(arr)), nil
+}
+
+func (s ByteArraySerialiser) Encode(elem interface{}, buffer []byte) (err error) {
+	arr := elem.([]byte)
+	copy(buffer[0:len(arr)], arr[0:len(arr)])
+	return nil
+}
+
+func (s ByteArraySerialiser) Decode(slice []byte) (elem interface{}, err error) {
+	elem = slice
+	return elem, nil
+}

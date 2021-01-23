@@ -8,16 +8,16 @@ import (
 	"time"
 )
 
-func testSimpleCreateOpenFeedDelete(t *testing.T) {
+func tTestSimpleCreateOpenFeedDelete(t *testing.T) {
 	prefix, _ := ioutil.TempDir("", "MMAP-")
-	//prefix, _ = os.Getwd()
+	//prefix, _ := os.Getwd()
 	//prefix += "/TEST"
 	base := prefix + "/lala"
 	defer cleanup(prefix)
 
 	t0 := time.Now()
 
-	s, err := MmapStreamCreate(base, 64*1024*1024, &GobSerialiser{})
+	s, err := MmapStreamCreate(base, 64*1024*1024, &ByteArraySerialiser{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,6 +32,7 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 			fmt.Println(i)
 		}
 		s.Feed(value)
+		//s.Feed(i)
 	}
 
 	dt := time.Now().Sub(t0)
@@ -44,7 +45,8 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 		t.Fatal()
 	}
 
-	// Took: 29.527s to store 10 MElems, avg. 2.815µs/write, 355239 IOPS, 470 Mb.
+	// Took: 29.527s to store 10 MElems, avg. 2.815µs/write, 355239 IOPS, 470 Mb. (gob serialiser, intel)
+	// Took: 975ms to store 10 MElems, avg. 93ns/write, 10752688 IOPS, 320 Mb. (ByteArraySerialiser. amd)
 }
 
 func cleanup(prefix string) {
