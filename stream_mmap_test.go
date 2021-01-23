@@ -17,7 +17,7 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 
 	t0 := time.Now()
 
-	s, err := MmapStreamCreate(base, 16*1024*1024, &GobSerialiser{})
+	s, err := MmapStreamCreate(base, 64*1024*1024, &GobSerialiser{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,14 +31,14 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 	}
 
 	dt := time.Now().Sub(t0)
-	fmt.Printf("Took: %v to store %v Krecords, avg. %v/record, %v Kb.\n",
-		dt, count/1024, time.Duration(int64(dt)/int64(count)), s.descriptor.Write/1024)
+	fmt.Printf("Took: %v to store %v M.records, avg. %v/record, %v Mb.\n",
+		dt, count/1024/1024, time.Duration(int64(dt)/int64(count)), s.descriptor.Write/1024/1024)
 
 	if err = s.CloseFile(); err != nil {
 		t.Fatal()
 	}
 
-	// Took: 27.843069823s to store 10240 Krecords, avg. 2.655µs/record, 227296 Kb.
+	// Took: 27.964029808s to store 10 M.records, avg. 2.666µs/record, 221 Mb.
 }
 
 func cleanup(prefix string) {
