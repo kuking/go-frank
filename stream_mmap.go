@@ -98,7 +98,7 @@ func openMmapPart(baseFilename string, partSize, partNo uint64, serialiser Strea
 func (mp *mmapPart) WriteAt(absOfs uint64, elem interface{}, elemLength uint64) {
 	localOfs := 1024 + int(absOfs%mp.partSize)
 	binary.LittleEndian.PutUint64(mp.mmap[localOfs:], elemLength)
-	if err := mp.serialiser.Encode(elem, mp.mmap[localOfs+8:]); err != nil {
+	if err := mp.serialiser.Encode(elem, mp.mmap[localOfs+8:localOfs+8]); err != nil {
 		panic(fmt.Sprintf("could not write in part, err: %v", err))
 	}
 }
