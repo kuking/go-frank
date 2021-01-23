@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func tTestSimpleCreateOpenFeedDelete(t *testing.T) {
+func testSimpleCreateOpenFeedDelete(t *testing.T) {
 	prefix, _ := ioutil.TempDir("", "MMAP-")
 	//prefix, _ := os.Getwd()
 	//prefix += "/TEST"
@@ -47,6 +47,7 @@ func tTestSimpleCreateOpenFeedDelete(t *testing.T) {
 
 	// Took: 29.527s to store 10 MElems, avg. 2.815µs/write, 355239 IOPS, 470 Mb. (gob serialiser, intel)
 	// Took: 975ms to store 10 MElems, avg. 93ns/write, 10752688 IOPS, 320 Mb. (ByteArraySerialiser. amd)
+	// Took: 907ms to store 10 MElems, avg. 86ns/write, 11627906 IOPS, 320 Mb. (ByteArraySerialiser, intel)
 }
 
 func cleanup(prefix string) {
