@@ -51,11 +51,15 @@ func ringPull(s *streamImpl) (read interface{}, closer bool) {
 
 // Closes the stream
 func (s *streamImpl) Close() {
+	head := s
+	for head.prev != nil {
+		head = head.prev
+	}
 	for i := 0; ; i++ {
-		ringRead := atomic.LoadUint64(&s.ringRead)
-		ringWrite := atomic.LoadUint64(&s.ringWrite)
+		ringRead := atomic.LoadUint64(&head.ringRead)
+		ringWrite := atomic.LoadUint64(&head.ringWrite)
 		if ringRead == ringWrite {
-			atomic.StoreInt32(&s.closed, 1)
+			atomic.StoreInt32(&head.closed, 1)
 			return
 		}
 		runtime.Gosched()
@@ -64,7 +68,11 @@ func (s *streamImpl) Close() {
 }
 
 func (s *streamImpl) IsClosed() bool {
-	return atomic.LoadInt32(&s.closed) != 0
+	head := s
+	for head.prev != nil {
+		head = head.prev
+	}
+	return atomic.LoadInt32(&head.closed) != 0
 }
 
 // Resets the stream position to zero, not always possible.
