@@ -24,22 +24,25 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 
 	//gob.Register(map[string]string{})
 	//value := map[string]string{"a": "b"}
-	value := []byte("hello how are you doing?")
+	value := []byte("Hello, how are you doing?")
 
-	count := 10 * 1024 * 1024
+	count := 100 * 1024 * 1024
 	for i := 0; i < count; i++ {
-		if i%1000000 == 0 {
-			fmt.Println(i)
+		if i%1_000_000 == 0 {
+			_, _ = os.Stdout.WriteString(".")
+			_ = os.Stdout.Sync()
 		}
 		s.Feed(value)
 		//s.Feed(i)
 	}
+	fmt.Println()
 
 	dt := time.Now().Sub(t0)
 	rt := time.Duration(int64(dt) / int64(count))
-	rps := 1_000_000_000 / rt.Nanoseconds()
-	fmt.Printf("Took: %v to store %v MElems, avg. %v/write, %v IOPS, %v Mb.\n",
-		dt.Truncate(time.Millisecond), count/1024/1024, rt, rps, s.descriptor.Write/1024/1024)
+	iops := 1_000_000_000 / rt.Nanoseconds()
+	fmt.Printf("Took: %v to store %v MElems, avg. %v/write, %v K.IOPS, %v Mb, %v Mb/s\n",
+		dt.Truncate(time.Millisecond), count/1024/1024, rt, iops/1024, s.descriptor.Write/1024/1024,
+		s.descriptor.Write/1024/uint64(dt.Milliseconds()))
 
 	if err = s.CloseFile(); err != nil {
 		t.Fatal()
@@ -47,7 +50,8 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 
 	// Took: 29.527s to store 10 MElems, avg. 2.815µs/write, 355239 IOPS, 470 Mb. (gob serialiser, intel)
 	// Took: 975ms to store 10 MElems, avg. 93ns/write, 10752688 IOPS, 320 Mb. (ByteArraySerialiser. amd)
-	// Took: 907ms to store 10 MElems, avg. 86ns/write, 11627906 IOPS, 320 Mb. (ByteArraySerialiser, intel)
+	// Took: 9.354s to store 100 MElems, avg. 89ns/write, 10972 K.IOPS, 3300 Mb, 361 Mb/s (ByteArraySerialiser, intel)
+
 }
 
 func cleanup(prefix string) {

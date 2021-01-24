@@ -61,7 +61,7 @@ type mmapPart struct {
 }
 
 func createMmapPart(baseFilename string, uniqId, partNo, partSize uint64) (err error) {
-	fdpPath := baseFilename + fmt.Sprintf(".%03x", partNo)
+	fdpPath := baseFilename + fmt.Sprintf(".%05x", partNo)
 	if err = mmapInit(fdpPath, 1024+int(partSize)); err != nil {
 		return
 	}
@@ -81,9 +81,9 @@ func createMmapPart(baseFilename string, uniqId, partNo, partSize uint64) (err e
 	return mm.Unmap()
 }
 
-func openMmapPart(baseFilename string, partSize, partNo uint64, serialiser StreamSerialiser) (mp *mmapPart, err error) {
+func openMmapPart(baseFilename string, uniqId, partNo, partSize uint64, serialiser StreamSerialiser) (mp *mmapPart, err error) {
 	mp = &mmapPart{
-		filename:   baseFilename + fmt.Sprintf(".%03x", partNo),
+		filename:   baseFilename + fmt.Sprintf(".%05x", partNo),
 		partSize:   partSize,
 		serialiser: serialiser,
 	}
@@ -92,6 +92,9 @@ func openMmapPart(baseFilename string, partSize, partNo uint64, serialiser Strea
 		return
 	}
 	mp.descriptor = (*mmapPartFileDescriptor)(unsafe.Pointer(&mp.mmap[0]))
+	if mp.descriptor.UniqId != uniqId {
+		return nil, errors.New("part file is from another stream, different ids!")
+	}
 	return
 }
 
@@ -122,7 +125,7 @@ func MmapStreamCreate(baseFilename string, partSize uint64, serialiser StreamSer
 		return nil, errors.New("part file should be at least 64k")
 	}
 	rand.Seed(time.Now().Unix())
-	fdfPath := baseFilename + ".fdf"
+	fdfPath := baseFilename + ".frank"
 	if err = mmapInit(fdfPath, 2048); err != nil {
 		return nil, err
 	}
@@ -155,7 +158,7 @@ func MmapStreamOpen(baseFilename string, serialiser StreamSerialiser) (s *mmapSt
 		serialiser:   serialiser,
 		baseFilename: baseFilename,
 	}
-	fdfPath := baseFilename + ".fdf"
+	fdfPath := baseFilename + ".frank"
 	s.descriptorMmap, err = mmapOpen(fdfPath)
 	if err != nil {
 		return
@@ -181,19 +184,25 @@ func (s *mmapStream) resolvePart(subId int, partNo uint64) *mmapPart {
 	if s.descriptor.PartsCount <= partNo {
 		// a new part is created
 		s.partLClock.Lock()
-		if err := createMmapPart(s.baseFilename, s.descriptor.UniqId, partNo, s.descriptor.PartSize); err != nil {
-			panic(fmt.Sprintf("failed to create a part file, err: %v", err)) //XXX: maybe less strict
-		}
-		s.descriptor.PartsCount++
-		if err := s.descriptorMmap.Flush(); err != nil {
-			panic(fmt.Sprintf("failed to flush descriptor, err: %v", err)) //XXX: maybe less strict
+		part, err := openMmapPart(s.baseFilename, s.descriptor.UniqId, partNo, s.descriptor.PartSize, s.serialiser)
+		if err != nil {
+			if err := createMmapPart(s.baseFilename, s.descriptor.UniqId, partNo, s.descriptor.PartSize); err != nil {
+				panic(fmt.Sprintf("failed to create a part file, err: %v", err)) //XXX: maybe less strict
+			}
+			s.descriptor.PartsCount++
+			if err := s.descriptorMmap.Flush(); err != nil {
+				panic(fmt.Sprintf("failed to flush descriptor, err: %v", err)) //XXX: maybe less strict
+			}
 		}
 		s.partLClock.Unlock()
+		if part != nil && err == nil { // to avoid race
+			return part
+		}
 	}
 
 	// the following does not need synchronisation on the assumption only one part per subscriber will be relevant (no race)
 	// and only one part for the writer will be relevant
-	part, err := openMmapPart(s.baseFilename, s.descriptor.PartSize, partNo, s.serialiser)
+	part, err := openMmapPart(s.baseFilename, s.descriptor.UniqId, partNo, s.descriptor.PartSize, s.serialiser)
 	if err != nil {
 		panic(fmt.Sprintf("failed to open a part file, fatal, err: %v", err)) //XXX: maybe less strict
 	}
