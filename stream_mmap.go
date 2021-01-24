@@ -108,6 +108,23 @@ func (mp *mmapPart) WriteAt(absOfs uint64, elem interface{}, elemLength uint64) 
 	}
 }
 
+func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint64) {
+	localOfs := 1024 + int(absOfs%mp.partSize)
+	if uint64(localOfs+8) > mp.partSize+1024 {
+		return
+	}
+	elemLength = binary.LittleEndian.Uint64(mp.mmap[localOfs:])
+	if elemLength == 0 {
+		return // we probably need the next part
+	}
+	var err error
+	elem, err = mp.serialiser.Decode(mp.mmap[localOfs+8 : localOfs+8+int(elemLength)])
+	if err != nil {
+		panic(fmt.Sprintf("could not read in part, err: %v", err))
+	}
+	return
+}
+
 func (mp *mmapPart) Close() error {
 	return mp.mmap.Unmap()
 }
@@ -265,6 +282,38 @@ func (s *mmapStream) Feed(elem interface{}) {
 		}
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
+	}
+}
+
+func (s *mmapStream) pullBySubId(subId int) interface{} {
+	for i := 0; ; i++ {
+		ofsRead := atomic.LoadUint64(&s.descriptor.SubRPos[subId])
+		ofsWrite := atomic.LoadUint64(&s.descriptor.Write)
+		if ofsRead != ofsWrite {
+			var ofsNewRead uint64
+			partNo := ofsRead / s.descriptor.PartSize
+			part := s.resolvePart(subId, partNo)
+			value, length := part.ReadAt(ofsRead)
+			if length == 0 {
+				partNo++
+				endSlack := s.descriptor.PartSize - (ofsRead % s.descriptor.PartSize)
+				part = s.resolvePart(subId, partNo)
+				value, length = part.ReadAt(ofsRead + endSlack)
+				ofsNewRead = ofsRead + endSlack + 8 + length
+			} else {
+				ofsNewRead = ofsRead + 8 + length
+			}
+			if atomic.CompareAndSwapUint64(&s.descriptor.SubRPos[subId], ofsRead, ofsNewRead) {
+				return value
+			}
+		}
+		runtime.Gosched()
+		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
+
+		// XXX FIX
+		//if s.IsClosed() {
+		//	return nil
+		//}
 	}
 }
 
