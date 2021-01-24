@@ -86,6 +86,10 @@ type streamImpl struct {
 	prev       *streamImpl
 }
 
+func (s *streamImpl) chain(pullFn func(s *streamImpl) (read interface{}, closed bool)) *streamImpl {
+	return &streamImpl{prev: s, pull: pullFn}
+}
+
 // Creates am empty stream with the required capacity in its ring buffer; the stream is not cosed. If used directly with
 // a termination function, it will block waiting for the Closing signal. This constructor is meant to be used in a
 // multithreading consumer/producer scenarios, not for simple consumers i.e. e. an array of elements (use ArrayStream)

@@ -19,12 +19,7 @@ func reflected(val interface{}) reflect.Value {
 }
 
 func (s *streamImpl) Reduce(op interface{}) Stream {
-	ns := streamImpl{
-		closed: 0,
-		prev:   s,
-	}
-
-	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+	return s.chain(func(ns *streamImpl) (read interface{}, closed bool) {
 		left, closed := ns.prev.pull(ns.prev)
 		if closed {
 			return nil, true
@@ -37,16 +32,11 @@ func (s *streamImpl) Reduce(op interface{}) Stream {
 			fnop := reflect.ValueOf(op)
 			left = fnop.Call([]reflect.Value{reflected(left), reflected(right)})[0].Interface()
 		}
-	}
-	return &ns
+	})
 }
 
 func (s *streamImpl) ReduceNA(reducer Reducer) Stream {
-	ns := streamImpl{
-		closed: 0,
-		prev:   s,
-	}
-	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+	return s.chain(func(ns *streamImpl) (read interface{}, closed bool) {
 		left, closed := ns.prev.pull(ns.prev)
 		if closed {
 			return nil, true
@@ -59,8 +49,7 @@ func (s *streamImpl) ReduceNA(reducer Reducer) Stream {
 			}
 			reducer.Next(right)
 		}
-	}
-	return &ns
+	})
 }
 
 func (s *streamImpl) Sum() Stream {
@@ -72,44 +61,30 @@ func (s *streamImpl) SumInt64() Stream {
 }
 
 func (s *streamImpl) Map(op interface{}) Stream {
-	ns := streamImpl{
-		closed: 0,
-		prev:   s,
-	}
 	fnop := reflect.ValueOf(op)
-	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+	return s.chain(func(ns *streamImpl) (read interface{}, closed bool) {
 		value, closed := ns.prev.pull(ns.prev)
 		if closed {
 			return nil, true
 		}
 		return fnop.Call([]reflect.Value{reflected(value)})[0].Interface(), false
-	}
-	return &ns
+	})
 }
 
 // MapInt64 requires one allocation per element (2 for the generic Map)
 func (s *streamImpl) MapInt64(op func(int64) int64) Stream {
-	ns := streamImpl{
-		closed: 0,
-		prev:   s,
-	}
-	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+	return s.chain(func(ns *streamImpl) (read interface{}, closed bool) {
 		value, closed := ns.prev.pull(ns.prev)
 		if closed {
 			return nil, true
 		}
 		return op(value.(int64)), false
-	}
-	return &ns
+	})
 }
 
 func (s *streamImpl) Filter(op interface{}) Stream {
-	ns := streamImpl{
-		closed: 0,
-		prev:   s,
-	}
 	fnop := reflect.ValueOf(op)
-	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+	return s.chain(func(ns *streamImpl) (read interface{}, closed bool) {
 		var elem interface{}
 		closed = false
 		for !closed {
@@ -121,16 +96,11 @@ func (s *streamImpl) Filter(op interface{}) Stream {
 			}
 		}
 		return nil, true
-	}
-	return &ns
+	})
 }
 
 func (s *streamImpl) FilterNA(op func(interface{}) bool) Stream {
-	ns := streamImpl{
-		closed: 0,
-		prev:   s,
-	}
-	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+	return s.chain(func(ns *streamImpl) (read interface{}, closed bool) {
 		closed = false
 		for !closed {
 			read, closed = ns.prev.pull(ns.prev)
@@ -141,8 +111,7 @@ func (s *streamImpl) FilterNA(op func(interface{}) bool) Stream {
 			}
 		}
 		return
-	}
-	return &ns
+	})
 }
 
 // converts the stream elements to the type provided; if the coerce parameter is set to true, it will try to convert the
@@ -161,16 +130,11 @@ func (s *streamImpl) EnsureType(t reflect.Type) Stream {
 // Modifies the Stream element in-place, avoids non-allocating operation. Given the root pointer can not be changed,
 // this can only be used with struct or containers i.e. maps, etc.
 func (s *streamImpl) ModifyNA(fn func(interface{})) Stream {
-	ns := streamImpl{
-		closed: 0,
-		prev:   s,
-	}
-	ns.pull = func(n *streamImpl) (read interface{}, closed bool) {
+	return s.chain(func(ns *streamImpl) (read interface{}, closed bool) {
 		read, closed = ns.prev.pull(ns.prev)
 		if !closed {
 			fn(read)
 		}
 		return
-	}
-	return &ns
+	})
 }

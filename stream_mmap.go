@@ -20,8 +20,6 @@ import (
 
 const (
 	mmapStreamFileVersion uint64 = 1
-
-	nonPersistentSubId uint64 = 1 // all subId with this id are cleared upon file opening
 )
 
 type mmapStreamDescriptor struct {
@@ -309,11 +307,9 @@ func (s *mmapStream) pullBySubId(subId int) interface{} {
 		}
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
-
-		// XXX FIX
-		//if s.IsClosed() {
-		//	return nil
-		//}
+		if s.IsClosed() {
+			return nil
+		}
 	}
 }
 
@@ -374,4 +370,14 @@ func mmapOpen(filename string) (mmap.MMap, error) {
 		return nil, err
 	}
 	return mmap.Map(f, mmap.RDWR, 0)
+}
+
+// ---- Standard Stream API ------------------------------------------------------------------------------------------
+
+func (s *mmapStream) Close() {
+	atomic.StoreUint32(&s.descriptor.Closed, 1)
+}
+
+func (s *mmapStream) IsClosed() bool {
+	return atomic.LoadUint32(&s.descriptor.Closed) != 0
 }
