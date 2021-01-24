@@ -12,7 +12,7 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 	prefix, _ := ioutil.TempDir("", "MMAP-")
 	//prefix, _ := os.Getwd()
 	//prefix += "/TEST"
-	base := prefix + "/lala"
+	base := prefix + "/a-stream"
 	defer cleanup(prefix)
 
 	t0 := time.Now()
@@ -21,7 +21,6 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	//gob.Register(map[string]string{})
 	//value := map[string]string{"a": "b"}
 	value := []byte("Hello, how are you doing?")
@@ -52,6 +51,62 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 	// Took: 975ms to store 10 MElems, avg. 93ns/write, 10752688 IOPS, 320 Mb. (ByteArraySerialiser. amd)
 	// Took: 9.354s to store 100 MElems, avg. 89ns/write, 10972 K.IOPS, 3300 Mb, 361 Mb/s (ByteArraySerialiser, intel)
 
+}
+
+func TestMmapStreamSubscriberForID(t *testing.T) {
+	prefix, _ := ioutil.TempDir("", "MMAP-")
+	base := prefix + "/a-stream"
+	defer cleanup(prefix)
+
+	s, err := MmapStreamCreate(base, 1024*1024*1024, &ByteArraySerialiser{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ids := map[int]int{}
+	for i := 0; i < 1000; i++ {
+		id := s.SubscriberIdForName(fmt.Sprint(i))
+		if id < 0 || id > 64 {
+			t.Fatal("id should be between 0 and 64")
+		}
+		ids[id]++
+	}
+
+	for _, v := range ids {
+		if v < 2 {
+			t.Fatal("it is expected to recycle old sub-ids")
+		}
+	}
+
+	if s.SubscriberIdForName("HELLO") != s.SubscriberIdForName("HELLO") {
+		t.Fatal("for the same named-subscriber, the subId should be the same")
+	}
+}
+
+func TestSimpleCreateCloseOpenFeedCloseConsumeDelete(t *testing.T) {
+	prefix, _ := ioutil.TempDir("", "MMAP-")
+	base := prefix + "/a-stream"
+	defer cleanup(prefix)
+
+	var s *mmapStream
+	var err error
+	if s, err = MmapStreamCreate(base, 1024*1024*1024, &ByteArraySerialiser{}); err != nil {
+		t.Fatal()
+	}
+	if err = s.CloseFile(); err != nil {
+		t.Fatal()
+	}
+
+	s, err = MmapStreamOpen(base, &ByteArraySerialiser{})
+	for i := 0; i < 1000; i++ {
+		s.Feed([]byte(fmt.Sprint(i)))
+	}
+
+	//subId := s.SubscriberIdForName("sub-1")
+
+	if err = s.CloseFile(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func cleanup(prefix string) {

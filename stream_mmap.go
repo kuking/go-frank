@@ -1,11 +1,13 @@
 package go_frank
 
 import (
+	"crypto/sha512"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/edsrzf/mmap-go"
 	"log"
+	"math"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -118,6 +120,7 @@ type mmapStream struct {
 	subPart        [32]*mmapPart         // subscribers mmPart for readers
 	writerPart     *mmapPart             // writer mmpart
 	partLClock     sync.Mutex            // lock only used when loading parts or creating to avoid races on create/load
+	subIdLock      sync.Mutex            // lock used to allocate unique subId
 }
 
 func MmapStreamCreate(baseFilename string, partSize uint64, serialiser StreamSerialiser) (s *mmapStream, err error) {
@@ -263,6 +266,42 @@ func (s *mmapStream) Feed(elem interface{}) {
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
 	}
+}
+
+func (s *mmapStream) SubscriberIdForName(namedSubscriber string) int {
+	s.subIdLock.Lock()
+	defer s.subIdLock.Unlock()
+
+	c := sha512.Sum512_256([]byte(namedSubscriber))
+	subIdForName := s.descriptor.UniqId ^
+		binary.LittleEndian.Uint64(c[0:8]) ^
+		binary.LittleEndian.Uint64(c[8:16]) ^
+		binary.LittleEndian.Uint64(c[16:24]) ^
+		binary.LittleEndian.Uint64(c[24:32])
+
+	// already subscribed? reuse
+	for i, subId := range s.descriptor.SubId {
+		if subId == subIdForName {
+			s.descriptor.SubTime[i] = time.Now().Unix()
+			return i
+		}
+	}
+
+	// find a new sloth
+	var possibleSubId int
+	posibleSubTime := int64(math.MaxInt64)
+	for i := 0; i < len(s.descriptor.SubId); i++ {
+		if posibleSubTime < s.descriptor.SubTime[i] {
+			posibleSubTime = s.descriptor.SubTime[i]
+			possibleSubId = i
+		}
+	}
+	// picks the older subscriber slot
+	s.descriptor.SubTime[possibleSubId] = time.Now().Unix()
+	s.descriptor.SubId[possibleSubId] = subIdForName
+	s.descriptor.SubRPos[possibleSubId] = 0
+	return possibleSubId
+
 }
 
 func mmapInit(filename string, size int) error {
