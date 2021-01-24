@@ -70,6 +70,25 @@ type Stream interface {
 	Publish(uri string)
 }
 
+// multi-consumer, multi-producer persistent Stream
+type PersistentStream interface {
+
+	// Lifecycle
+	Feed(elem interface{})
+	Close()
+	IsClosed() bool
+	PruneUntil(absPos uint64)
+
+	// stats
+	Oldest() uint64
+	Newest() uint64
+	Statistics() map[string]interface{}
+
+	// Subscribing
+	Consume(clientName string) Stream
+
+}
+
 // --------------------------------------------------------------------------------------------------------------------
 //
 // Ring buffer implementation and builders
