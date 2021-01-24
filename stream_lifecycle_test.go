@@ -5,7 +5,7 @@ import "testing"
 // missing tests
 // i.e. feeding data at the head of the stream, or the tail, or something in between, it should work.
 
-func TestClosedWorksInChain(t *testing.T) {
+func TestCloseFeedWorksInChain(t *testing.T) {
 
 	for c := 0; c < 4; c++ {
 		s := make([]Stream, 4)
@@ -22,7 +22,7 @@ func TestClosedWorksInChain(t *testing.T) {
 		}
 
 		for i := 0; i < 100; i++ {
-			s[0].Feed(i)
+			s[c].Feed(i)
 		}
 		go s[c].Close() // close the c'th in the chain so it can be fully consumed
 
@@ -33,7 +33,6 @@ func TestClosedWorksInChain(t *testing.T) {
 				t.Fatal()
 			}
 		}
-
 	}
 
 }

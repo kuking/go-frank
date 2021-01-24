@@ -8,16 +8,20 @@ import (
 
 // Feeds an element into the stream
 func (s *streamImpl) Feed(elem interface{}) {
-	rbs := uint64(len(s.ringBuffer))
+	head := s
+	for head.prev != nil {
+		head = head.prev
+	}
+	rbs := uint64(len(head.ringBuffer))
 	for i := 0; ; i++ {
-		ringRead := atomic.LoadUint64(&s.ringRead)
-		ringWrite := atomic.LoadUint64(&s.ringWrite)
-		ringWAlloc := atomic.LoadUint64(&s.ringWAlloc)
+		ringRead := atomic.LoadUint64(&head.ringRead)
+		ringWrite := atomic.LoadUint64(&head.ringWrite)
+		ringWAlloc := atomic.LoadUint64(&head.ringWAlloc)
 		ringWriteNextVal := ringWrite + 1
-		if ringWrite == ringWAlloc && ringWriteNextVal-uint64(len(s.ringBuffer)) != ringRead {
-			if atomic.CompareAndSwapUint64(&s.ringWAlloc, ringWAlloc, ringWriteNextVal) {
-				s.ringBuffer[ringWrite%rbs] = elem
-				if !atomic.CompareAndSwapUint64(&s.ringWrite, ringWrite, ringWriteNextVal) {
+		if ringWrite == ringWAlloc && ringWriteNextVal-uint64(len(head.ringBuffer)) != ringRead {
+			if atomic.CompareAndSwapUint64(&head.ringWAlloc, ringWAlloc, ringWriteNextVal) {
+				head.ringBuffer[ringWrite%rbs] = elem
+				if !atomic.CompareAndSwapUint64(&head.ringWrite, ringWrite, ringWriteNextVal) {
 					panic("failed to commit allocated write in ring-buffer")
 				}
 				return
