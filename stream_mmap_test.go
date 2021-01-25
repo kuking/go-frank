@@ -17,7 +17,7 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 
 	t0 := time.Now()
 
-	s, err := MmapStreamCreate(base, 64*1024*1024, &ByteArraySerialiser{})
+	s, err := mmapStreamCreate(base, 64*1024*1024, &ByteArraySerialiser{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestMmapStreamSubscriberForID(t *testing.T) {
 	base := prefix + "/a-stream"
 	defer cleanup(prefix)
 
-	s, err := MmapStreamCreate(base, 1024*1024*1024, &ByteArraySerialiser{})
+	s, err := mmapStreamCreate(base, 1024*1024*1024, &ByteArraySerialiser{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,14 +90,14 @@ func TestSimpleCreateCloseOpenFeedCloseConsumeDelete(t *testing.T) {
 
 	var s *mmapStream
 	var err error
-	if s, err = MmapStreamCreate(base, 64*1024, &ByteArraySerialiser{}); err != nil {
+	if s, err = mmapStreamCreate(base, 64*1024, &ByteArraySerialiser{}); err != nil {
 		t.Fatal()
 	}
 	if err = s.CloseFile(); err != nil {
 		t.Fatal()
 	}
 
-	s, err = MmapStreamOpen(base, &ByteArraySerialiser{})
+	s, err = mmapStreamOpen(base, &ByteArraySerialiser{})
 	for i := 0; i < 20_000; i++ {
 		s.Feed([]byte(fmt.Sprintf("!!%v!!%v!!", i, i)))
 	}

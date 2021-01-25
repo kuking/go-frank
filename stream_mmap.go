@@ -20,6 +20,7 @@ import (
 
 const (
 	mmapStreamFileVersion uint64 = 1
+	mmapStreamMaxClients  int    = 64
 )
 
 type mmapStreamDescriptor struct {
@@ -33,9 +34,9 @@ type mmapStreamDescriptor struct {
 	Closed     uint32
 
 	// 64 persistent subscribers
-	SubId   [64]uint64 // an unique id
-	SubRPos [64]uint64
-	SubTime [64]int64 // last time a subscriber was active (reading/writing), updated rarely but helps to cleanup
+	SubId   [mmapStreamMaxClients]uint64 // an unique id
+	SubRPos [mmapStreamMaxClients]uint64
+	SubTime [mmapStreamMaxClients]int64 // last time a subscriber was active (reading/writing), updated rarely but helps to cleanup
 }
 
 //needs watchdog: Wlock!=WAlloc and values stay quiet for 1s, producer has die.
@@ -131,14 +132,14 @@ type mmapStream struct {
 	serialiser     StreamSerialiser
 	baseFilename   string
 	descriptorMmap mmap.MMap
-	descriptor     *mmapStreamDescriptor // pointing to the descriptor'Mmap
-	subPart        [32]*mmapPart         // subscribers mmPart for readers
-	writerPart     *mmapPart             // writer mmpart
-	partLClock     sync.Mutex            // lock only used when loading parts or creating to avoid races on create/load
-	subIdLock      sync.Mutex            // lock used to allocate unique subId
+	descriptor     *mmapStreamDescriptor           // pointing to the descriptor'Mmap
+	subPart        [mmapStreamMaxClients]*mmapPart // subscribers mmPart for readers
+	writerPart     *mmapPart                       // writer mmpart
+	partLClock     sync.Mutex                      // lock only used when loading parts or creating to avoid races on create/load
+	subIdLock      sync.Mutex                      // lock used to allocate unique subId
 }
 
-func MmapStreamCreate(baseFilename string, partSize uint64, serialiser StreamSerialiser) (s *mmapStream, err error) {
+func mmapStreamCreate(baseFilename string, partSize uint64, serialiser StreamSerialiser) (s *mmapStream, err error) {
 	if partSize < 64*1024 {
 		return nil, errors.New("part file should be at least 64k")
 	}
@@ -168,10 +169,10 @@ func MmapStreamCreate(baseFilename string, partSize uint64, serialiser StreamSer
 	if err = mm.Unmap(); err != nil {
 		return nil, err
 	}
-	return MmapStreamOpen(baseFilename, serialiser)
+	return mmapStreamOpen(baseFilename, serialiser)
 }
 
-func MmapStreamOpen(baseFilename string, serialiser StreamSerialiser) (s *mmapStream, err error) {
+func mmapStreamOpen(baseFilename string, serialiser StreamSerialiser) (s *mmapStream, err error) {
 	s = &mmapStream{
 		serialiser:   serialiser,
 		baseFilename: baseFilename,
@@ -186,7 +187,11 @@ func MmapStreamOpen(baseFilename string, serialiser StreamSerialiser) (s *mmapSt
 }
 
 func (s *mmapStream) CloseFile() error {
-	//XXX close parts cache
+	for _, part := range s.subPart {
+		if part != nil {
+			part.Close()
+		}
+	}
 	return s.descriptorMmap.Unmap()
 }
 

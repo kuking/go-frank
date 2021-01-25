@@ -86,28 +86,13 @@ type PersistentStream interface {
 
 	// Subscribing
 	Consume(clientName string) Stream
-
 }
 
 // --------------------------------------------------------------------------------------------------------------------
 //
-// Ring buffer implementation and builders
+// Builders
 //
 // --------------------------------------------------------------------------------------------------------------------
-
-type streamImpl struct {
-	ringBuffer []interface{}
-	ringRead   uint64
-	ringWrite  uint64
-	ringWAlloc uint64
-	closed     int32
-	pull       func(s *streamImpl) (read interface{}, closed bool)
-	prev       *streamImpl
-}
-
-func (s *streamImpl) chain(pullFn func(s *streamImpl) (read interface{}, closed bool)) *streamImpl {
-	return &streamImpl{prev: s, pull: pullFn}
-}
 
 // Creates am empty stream with the required capacity in its ring buffer; the stream is not cosed. If used directly with
 // a termination function, it will block waiting for the Closing signal. This constructor is meant to be used in a

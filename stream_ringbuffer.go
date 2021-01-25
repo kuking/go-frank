@@ -6,6 +6,20 @@ import (
 	"time"
 )
 
+type streamImpl struct {
+	ringBuffer []interface{}
+	ringRead   uint64
+	ringWrite  uint64
+	ringWAlloc uint64
+	closed     int32
+	pull       func(s *streamImpl) (read interface{}, closed bool)
+	prev       *streamImpl
+}
+
+func (s *streamImpl) chain(pullFn func(s *streamImpl) (read interface{}, closed bool)) *streamImpl {
+	return &streamImpl{prev: s, pull: pullFn}
+}
+
 // Feeds an element into the stream
 func (s *streamImpl) Feed(elem interface{}) {
 	head := s
