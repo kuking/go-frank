@@ -288,7 +288,7 @@ func (s *mmapStream) Feed(elem interface{}) {
 	}
 }
 
-func (s *mmapStream) pullBySubId(subId int) interface{} {
+func (s *mmapStream) pullBySubId(subId int) (elem interface{}, closed bool) {
 	for i := 0; ; i++ {
 		ofsRead := atomic.LoadUint64(&s.descriptor.SubRPos[subId])
 		ofsWrite := atomic.LoadUint64(&s.descriptor.Write)
@@ -307,13 +307,13 @@ func (s *mmapStream) pullBySubId(subId int) interface{} {
 				ofsNewRead = ofsRead + 8 + length
 			}
 			if atomic.CompareAndSwapUint64(&s.descriptor.SubRPos[subId], ofsRead, ofsNewRead) {
-				return value
+				return value, false
 			}
 		}
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
 		if s.IsClosed() {
-			return nil
+			return nil, true
 		}
 	}
 }

@@ -77,12 +77,12 @@ type PersistentStream interface {
 	Feed(elem interface{})
 	Close()
 	IsClosed() bool
-	PruneUntil(absPos uint64)
+	//PruneUntil(absPos uint64)
 
 	// stats
-	Oldest() uint64
-	Newest() uint64
-	Statistics() map[string]interface{}
+	//Oldest() uint64
+	//Newest() uint64
+	//Statistics() map[string]interface{}
 
 	// Subscribing
 	Consume(clientName string) Stream
@@ -104,7 +104,7 @@ func EmptyStream(capacity int) Stream {
 		ringRead:   0,
 		ringWrite:  0,
 		ringWAlloc: 0,
-		closed:     0,
+		closedFlag: 0,
 		pull:       ringPull,
 		prev:       nil,
 	}
@@ -141,4 +141,14 @@ func streamGeneratorFeeder(s Stream, generator func() Optional) {
 		opt = generator()
 	}
 	s.Close()
+}
+
+func OpenCreatePersistentStream(basePath string, partSize uint64, serialiser StreamSerialiser) (ps PersistentStream, err error) {
+	ps, err = mmapStreamOpen(basePath, serialiser)
+	if err == nil {
+		return
+	} else {
+		ps, err = mmapStreamCreate(basePath, partSize, serialiser)
+		return
+	}
 }

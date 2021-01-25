@@ -11,7 +11,7 @@ type streamImpl struct {
 	ringRead   uint64
 	ringWrite  uint64
 	ringWAlloc uint64
-	closed     int32
+	closedFlag int32
 	pull       func(s *streamImpl) (read interface{}, closed bool)
 	prev       *streamImpl
 }
@@ -77,7 +77,7 @@ func (s *streamImpl) Close() {
 		ringRead := atomic.LoadUint64(&head.ringRead)
 		ringWrite := atomic.LoadUint64(&head.ringWrite)
 		if ringRead == ringWrite {
-			atomic.StoreInt32(&head.closed, 1)
+			atomic.StoreInt32(&head.closedFlag, 1)
 			return
 		}
 		runtime.Gosched()
@@ -90,7 +90,7 @@ func (s *streamImpl) IsClosed() bool {
 	for head.prev != nil {
 		head = head.prev
 	}
-	return atomic.LoadInt32(&head.closed) != 0
+	return atomic.LoadInt32(&head.closedFlag) != 0
 }
 
 // Resets the stream position to zero, not always possible.
@@ -101,8 +101,8 @@ func (s *streamImpl) Reset() uint64 {
 			return atomic.LoadUint64(&s.ringRead)
 		}
 		atomic.StoreUint64(&s.ringRead, 0)
-		if atomic.LoadInt32(&s.closed) != 0 {
-			atomic.StoreInt32(&s.closed, 0)
+		if atomic.LoadInt32(&s.closedFlag) != 0 {
+			atomic.StoreInt32(&s.closedFlag, 0)
 			go s.Close()
 		}
 		return 0

@@ -104,7 +104,7 @@ func TestSimpleCreateCloseOpenFeedCloseConsumeDelete(t *testing.T) {
 
 	subId := s.SubscriberIdForName("sub-1")
 	for i := 0; i < 20_000; i++ {
-		val := s.pullBySubId(subId)
+		val, _ := s.pullBySubId(subId)
 		if fmt.Sprintf("!!%v!!%v!!", i, i) != string(val.([]byte)) {
 			t.Fatal(fmt.Sprintf("%v should be eq to %v", val, i))
 		}
