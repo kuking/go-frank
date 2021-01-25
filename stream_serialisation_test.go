@@ -38,7 +38,6 @@ func TestGobSerialiser(t *testing.T) {
 	}
 }
 
-
 func TestByteArraySerialiser(t *testing.T) {
 
 	buf := [1024]byte{}
@@ -69,5 +68,21 @@ func TestByteArraySerialiser(t *testing.T) {
 	}
 }
 
-
-
+func TestByteArraySerialiser_Strings(t *testing.T) {
+	bas := ByteArraySerialiser{}
+	if size, err := bas.EncodedSize("lala"); size != 4 || err != nil {
+		t.Fatal()
+	}
+	buf := [1024]byte{}
+	slice := buf[:0]
+	if err := bas.Encode("lala", slice[:]); err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := bas.Decode(buf[0:4])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if "lala" != asString(recovered) {
+		t.Fatal(fmt.Sprintf("lala != %v", recovered))
+	}
+}

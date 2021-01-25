@@ -3,6 +3,8 @@ package go_frank
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
+	"reflect"
 )
 
 // TODO: this has to handle nil serialisation
@@ -46,13 +48,34 @@ func (g *GobSerialiser) Decode(slice []byte) (elem interface{}, err error) {
 
 type ByteArraySerialiser struct{}
 
+func asByteArray(elem interface{}) []byte {
+	switch elem.(type) {
+	case string:
+		return []byte(elem.(string))
+	case []byte:
+		return elem.([]byte)
+	default:
+		panic("can not use this serialiser with anything but string or []byte")
+	}
+}
+
+func asString(elem interface{}) string {
+	switch elem.(type) {
+	case string:
+		return elem.(string)
+	case []byte:
+		return string(elem.([]byte))
+	default:
+		panic(fmt.Sprintf("unimplemented asString from type: %v", reflect.TypeOf(elem)))
+	}
+}
+
 func (s ByteArraySerialiser) EncodedSize(elem interface{}) (size uint64, err error) {
-	arr := elem.([]byte)
-	return uint64(len(arr)), nil
+	return uint64(len(asByteArray(elem))), nil
 }
 
 func (s ByteArraySerialiser) Encode(elem interface{}, buffer []byte) (err error) {
-	arr := elem.([]byte)
+	arr := asByteArray(elem)
 	copy(buffer[0:len(arr)], arr[0:len(arr)])
 	return nil
 }
