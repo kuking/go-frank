@@ -6,7 +6,7 @@ func (s *mmapStream) Consume(clientName string) Stream {
 		return s.pullBySubId(subId)
 	}
 	si := streamImpl{
-		provider: &mmapStreamProviderSubscriberAware{
+		provider: &mmapStreamProviderForSubscriber{
 			subId:      subId,
 			mmapStream: s,
 		},
@@ -15,40 +15,40 @@ func (s *mmapStream) Consume(clientName string) Stream {
 	return &si
 }
 
-type mmapStreamProviderSubscriberAware struct {
+type mmapStreamProviderForSubscriber struct {
 	subId      int
 	mmapStream *mmapStream
 }
 
-func (ms *mmapStreamProviderSubscriberAware) Feed(elem interface{}) {
+func (ms *mmapStreamProviderForSubscriber) Feed(elem interface{}) {
 	ms.mmapStream.Feed(elem)
 }
-func (ms *mmapStreamProviderSubscriberAware) Close() {
+func (ms *mmapStreamProviderForSubscriber) Close() {
 	ms.mmapStream.Close()
 }
 
-func (ms *mmapStreamProviderSubscriberAware) IsClosed() bool {
+func (ms *mmapStreamProviderForSubscriber) IsClosed() bool {
 	return ms.mmapStream.IsClosed()
 }
 
-func (ms *mmapStreamProviderSubscriberAware) Pull() (elem interface{}, closed bool) {
+func (ms *mmapStreamProviderForSubscriber) Pull() (elem interface{}, closed bool) {
 	return ms.mmapStream.pullBySubId(ms.subId)
 }
-func (ms *mmapStreamProviderSubscriberAware) Reset() uint64 {
+func (ms *mmapStreamProviderForSubscriber) Reset() uint64 {
 	return ms.mmapStream.Reset(ms.subId)
 }
 
-func (ms *mmapStreamProviderSubscriberAware) CurrAbsPos() uint64 {
+func (ms *mmapStreamProviderForSubscriber) CurrAbsPos() uint64 {
 	//XXX: implement
 	return 0
 }
 
-func (ms *mmapStreamProviderSubscriberAware) PeekLimit() uint64 {
+func (ms *mmapStreamProviderForSubscriber) PeekLimit() uint64 {
 	//XXX: implement
 	return 0
 }
 
-func (ms *mmapStreamProviderSubscriberAware) Peek(absPos uint64) interface{} {
+func (ms *mmapStreamProviderForSubscriber) Peek(absPos uint64) interface{} {
 	//XXX: implement
 	return nil
 }
