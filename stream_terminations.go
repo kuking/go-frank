@@ -2,7 +2,6 @@ package go_frank
 
 import (
 	"math"
-	"os"
 	"reflect"
 )
 
@@ -102,7 +101,4 @@ func (s *streamImpl) ForEach(op interface{}) {
 		reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(val)})
 		val, closed = s.pull()
 	}
-}
-
-func (s *streamImpl) ToTextFile(file os.File) {
 }

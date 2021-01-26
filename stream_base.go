@@ -1,16 +1,5 @@
 package go_frank
 
-type streamProvider interface {
-	Feed(elem interface{})
-	Close()
-	IsClosed() bool
-	Pull() (elem interface{}, closed bool)
-	Reset() uint64
-	CurrAbsPos() uint64
-	PeekLimit() uint64
-	Peek(absPos uint64) interface{}
-}
-
 type streamImpl struct {
 	provider streamProvider
 	pull     func() (read interface{}, closed bool)
@@ -60,4 +49,8 @@ func (s *streamImpl) PeekLimit() uint64 {
 
 func (s *streamImpl) Peek(absPos uint64) interface{} {
 	return s.provider.Peek(absPos)
+}
+
+func (s *streamImpl) Wait(waitApproach WaitApproach) {
+	s.provider.Wait(waitApproach)
 }

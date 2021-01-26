@@ -10,6 +10,7 @@ type Stream interface {
 	Feed(elem interface{})
 	Close()
 	IsClosed() bool
+	Wait(waitApproach WaitApproach)
 
 	// Positioning operations
 	Reset() uint64
@@ -20,7 +21,6 @@ type Stream interface {
 	//BinaryFind(cmp interface{}) Stream // will skip as much as possible, while possible.
 	//Makes sense on network/archive streams or big buffered stream
 
-	// Positioning helpers for Stream heads, non-head streams will return 0
 	CurrAbsPos() uint64
 	PeekLimit() uint64
 	Peek(absPos uint64) interface{}
@@ -84,8 +84,25 @@ type PersistentStream interface {
 	//Newest() uint64
 	//Statistics() map[string]interface{}
 
-	// Subscribing
+	// Subscribing, wait approach is UntilNoMoreData
 	Consume(clientName string) Stream
+}
+
+type WaitApproach int64
+
+const (
+	UntilClosed       WaitApproach = -1
+	UntilNoMoreData   WaitApproach = 0
+	WaitingUpto1000ns WaitApproach = 1_000
+	WaitingUpto10ms   WaitApproach = 10_000_000
+	WaitingUpto1s     WaitApproach = 1_000_000_000
+)
+
+// allocation free reducer
+type Reducer interface {
+	First(interface{})
+	Next(interface{})
+	Result() interface{}
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -97,7 +114,7 @@ type PersistentStream interface {
 // Creates am empty stream with the required capacity in its ring buffer; the stream is not cosed. If used directly with
 // a termination function, it will block waiting for the Closing signal. This constructor is meant to be used in a
 // multithreading consumer/producer scenarios, not for simple consumers i.e. e. an array of elements (use ArrayStream)
-// or for creating a stream with a generator function (see StreamGenerator)
+// or for creating a stream with a generator function (see StreamGenerator). Default blocking approach is UntilClosed.
 func EmptyStream(capacity int) Stream {
 	rb := newRingBufferProvider(capacity)
 	return &streamImpl{

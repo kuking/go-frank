@@ -7,8 +7,9 @@ func (s *mmapStream) Consume(clientName string) Stream {
 	}
 	si := streamImpl{
 		provider: &mmapStreamProviderForSubscriber{
-			subId:      subId,
-			mmapStream: s,
+			subId:        subId,
+			waitApproach: UntilNoMoreData,
+			mmapStream:   s,
 		},
 		pull: fn,
 	}
@@ -16,8 +17,9 @@ func (s *mmapStream) Consume(clientName string) Stream {
 }
 
 type mmapStreamProviderForSubscriber struct {
-	subId      int
-	mmapStream *mmapStream
+	subId        int
+	waitApproach WaitApproach
+	mmapStream   *mmapStream
 }
 
 func (ms *mmapStreamProviderForSubscriber) Feed(elem interface{}) {
@@ -34,6 +36,7 @@ func (ms *mmapStreamProviderForSubscriber) IsClosed() bool {
 func (ms *mmapStreamProviderForSubscriber) Pull() (elem interface{}, closed bool) {
 	return ms.mmapStream.pullBySubId(ms.subId)
 }
+
 func (ms *mmapStreamProviderForSubscriber) Reset() uint64 {
 	return ms.mmapStream.Reset(ms.subId)
 }
@@ -51,4 +54,8 @@ func (ms *mmapStreamProviderForSubscriber) PeekLimit() uint64 {
 func (ms *mmapStreamProviderForSubscriber) Peek(absPos uint64) interface{} {
 	//XXX: implement
 	return nil
+}
+
+func (ms *mmapStreamProviderForSubscriber) Wait(waitApproach WaitApproach) {
+	ms.waitApproach = waitApproach
 }

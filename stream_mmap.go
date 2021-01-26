@@ -18,6 +18,8 @@ import (
 	"os"
 )
 
+// memory mapped files holding stream data, multi-producer, multi-consumer. Very Fast. Some ideas from LMAX' Disruptor.
+
 const (
 	mmapStreamFileVersion uint64 = 1
 	mmapStreamMaxClients  int    = 64

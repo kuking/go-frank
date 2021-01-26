@@ -7,20 +7,22 @@ import (
 )
 
 type ringBufferProvider struct {
-	ringBuffer []interface{}
-	ringRead   uint64
-	ringWrite  uint64
-	ringWAlloc uint64
-	closedFlag int32
+	ringBuffer   []interface{}
+	ringRead     uint64
+	ringWrite    uint64
+	ringWAlloc   uint64
+	closedFlag   int32
+	WaitApproach WaitApproach
 }
 
 func newRingBufferProvider(capacity int) *ringBufferProvider {
 	return &ringBufferProvider{
-		ringBuffer: make([]interface{}, capacity),
-		ringRead:   0,
-		ringWrite:  0,
-		ringWAlloc: 0,
-		closedFlag: 0,
+		ringBuffer:   make([]interface{}, capacity),
+		ringRead:     0,
+		ringWrite:    0,
+		ringWAlloc:   0,
+		closedFlag:   0,
+		WaitApproach: UntilClosed,
 	}
 }
 
@@ -115,4 +117,8 @@ func (r *ringBufferProvider) Peek(absPos uint64) interface{} {
 		return nil
 	}
 	return r.ringBuffer[absPos%rbs]
+}
+
+func (r *ringBufferProvider) Wait(waitApproach WaitApproach) {
+	r.WaitApproach = waitApproach
 }
