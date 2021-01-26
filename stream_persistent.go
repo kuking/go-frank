@@ -32,7 +32,7 @@ func (ms *mmapStreamProviderSubscriberAware) IsClosed() bool {
 }
 
 func (ms *mmapStreamProviderSubscriberAware) Pull() (elem interface{}, closed bool) {
-	return ms.mmapStream.Pull()
+	return ms.mmapStream.pullBySubId(ms.subId)
 }
 func (ms *mmapStreamProviderSubscriberAware) Reset() uint64 {
 	return ms.mmapStream.Reset(ms.subId)
