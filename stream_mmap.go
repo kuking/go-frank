@@ -109,13 +109,21 @@ func (mp *mmapPart) WriteAt(absOfs uint64, elem interface{}, elemLength uint64) 
 	}
 }
 
-func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint64) {
+func (mp *mmapPart) WriteEoP(absOfs uint64) {
 	localOfs := 1024 + int(absOfs%mp.partSize)
 	if uint64(localOfs+8) > mp.partSize+1024 {
 		return
 	}
+	binary.LittleEndian.PutUint64(mp.mmap[localOfs:], math.MaxUint64)
+}
+
+func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint64) {
+	localOfs := 1024 + int(absOfs%mp.partSize)
+	if uint64(localOfs+8) > mp.partSize+1024 {
+		return nil, math.MaxUint64
+	}
 	elemLength = binary.LittleEndian.Uint64(mp.mmap[localOfs:])
-	if elemLength == 0 {
+	if elemLength == math.MaxUint64 {
 		return // we probably need the next part
 	}
 	var err error
@@ -270,6 +278,9 @@ func (s *mmapStream) Feed(elem interface{}) {
 			partNo := ofsWrite / s.descriptor.PartSize
 			partLeft := s.descriptor.PartSize - (ofsWrite % s.descriptor.PartSize)
 			if partLeft < encodedSizePlusHeader {
+				// write end of part marker
+				mp := s.resolvePart(-1, partNo)
+				mp.WriteEoP(newOfsStart)
 				// it will not fit in the last bit of the part, so a new one is required
 				partNo++
 				newOfsStart += partLeft
@@ -295,12 +306,12 @@ func (s *mmapStream) pullBySubId(subId int, waitApproach WaitApproach) (elem int
 	for i := 0; ; i++ {
 		ofsRead := atomic.LoadUint64(&s.descriptor.SubRPos[subId])
 		ofsWrite := atomic.LoadUint64(&s.descriptor.Write)
-		if ofsRead != ofsWrite {
+		if ofsRead < ofsWrite {
 			var ofsNewRead uint64
 			partNo := ofsRead / s.descriptor.PartSize
 			part := s.resolvePart(subId, partNo)
 			value, length := part.ReadAt(ofsRead)
-			if length == 0 {
+			if length == math.MaxUint64 {
 				partNo++
 				endSlack := s.descriptor.PartSize - (ofsRead % s.descriptor.PartSize)
 				part = s.resolvePart(subId, partNo)

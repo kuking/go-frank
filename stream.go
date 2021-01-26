@@ -77,6 +77,7 @@ type PersistentStream interface {
 	Feed(elem interface{})
 	Close()
 	IsClosed() bool
+	CloseFile() error
 	//PruneUntil(absPos uint64)
 
 	// stats

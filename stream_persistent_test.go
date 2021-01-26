@@ -99,3 +99,18 @@ func TestWaitApproachPersistent(t *testing.T) {
 		t.Fatal(fmt.Sprintf("it should have been lots faster, took: %v", dur))
 	}
 }
+
+func TestPersistentWithZeroLengthElementsWorks(t *testing.T) {
+	prefix, _ := ioutil.TempDir("", "MMAP-")
+	base := prefix + "/a-stream"
+	defer cleanup(prefix)
+	p, _ := OpenCreatePersistentStream(base, 64*1024, ByteArraySerialiser{})
+
+	s := p.Consume("lala")
+	s.Feed([]byte{})
+
+	elemOp := s.Pull()
+	if elemOp.isEmpty() || len(elemOp.Get().([]byte)) != 0 {
+		t.Fatal()
+	}
+}
