@@ -7,7 +7,7 @@ import (
 
 func TestOptionalEmpty(t *testing.T) {
 	opt := EmptyOptional()
-	if opt.IsPresent() || !opt.isEmpty() {
+	if opt.IsPresent() || !opt.IsEmpty() {
 		t.Fatal()
 	}
 	if fmt.Sprint(opt.Get()) != "tried to Get an empty option" {
@@ -28,7 +28,7 @@ func TestOptionalEmpty(t *testing.T) {
 
 func TestOptionalOf(t *testing.T) {
 	opt := OptionalOf("hello")
-	if !opt.IsPresent() || opt.isEmpty() {
+	if !opt.IsPresent() || opt.IsEmpty() {
 		t.Fatal()
 	}
 	if opt.Get() != "hello" {

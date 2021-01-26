@@ -4,11 +4,11 @@ import "testing"
 
 func TestFirstLast(t *testing.T) {
 	result := givenStringArrayStream().First()
-	if result.isEmpty() || result.Get() != "Hello" {
+	if result.IsEmpty() || result.Get() != "Hello" {
 		t.Fatal()
 	}
 	result = givenStringArrayStream().Last()
-	if result.isEmpty() || result.Get() != "?" {
+	if result.IsEmpty() || result.Get() != "?" {
 		t.Fatal()
 	}
 }

@@ -110,7 +110,7 @@ func TestPersistentWithZeroLengthElementsWorks(t *testing.T) {
 	s.Feed([]byte{})
 
 	elemOp := s.Pull()
-	if elemOp.isEmpty() || len(elemOp.Get().([]byte)) != 0 {
+	if elemOp.IsEmpty() || len(elemOp.Get().([]byte)) != 0 {
 		t.Fatal()
 	}
 }

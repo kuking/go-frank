@@ -8,7 +8,7 @@ func TestReduce(t *testing.T) {
 	result := givenStringArrayStream().
 		Reduce(func(l, r string) string { return l + " " + r }).
 		First()
-	if result.isEmpty() || result.Get().(string) != "Hello how are you doing ?" {
+	if result.IsEmpty() || result.Get().(string) != "Hello how are you doing ?" {
 		t.Fatal(result.Get())
 	}
 	// one element reduce
@@ -34,7 +34,7 @@ func TestMap(t *testing.T) {
 		Map(func(s string) int { return len(s) }).
 		Reduce(func(l, r int) int { return l + r }).
 		First()
-	if result.isEmpty() || result.Get() != 20 {
+	if result.IsEmpty() || result.Get() != 20 {
 		t.Fatal()
 	}
 }
@@ -44,7 +44,7 @@ func TestMapInt64(t *testing.T) {
 		MapInt64(func(i int64) int64 { return i + 1 }).
 		Reduce(func(l, r int64) int64 { return l + r }).
 		First()
-	if result.isEmpty() || result.Get() != int64(((123*(123-1))/2)+123) {
+	if result.IsEmpty() || result.Get() != int64(((123*(123-1))/2)+123) {
 		t.Fatal(result.Get())
 	}
 }
@@ -64,7 +64,7 @@ func TestFilter(t *testing.T) {
 		Filter(func(s string) bool { return len(s) == 3 }).
 		Reduce(func(l, r string) string { return l + " " + r }).
 		First()
-	if result.isEmpty() || result.Get() != "Hello doing ?" {
+	if result.IsEmpty() || result.Get() != "Hello doing ?" {
 		t.Fatal(result)
 	}
 	// filterNA
@@ -72,7 +72,7 @@ func TestFilter(t *testing.T) {
 		FilterNA(func(s interface{}) bool { return len(s.(string)) == 3 }).
 		Reduce(func(l, r string) string { return l + " " + r }).
 		First()
-	if result.isEmpty() || result.Get() != "Hello doing ?" {
+	if result.IsEmpty() || result.Get() != "Hello doing ?" {
 		t.Fatal(result)
 	}
 }
@@ -85,7 +85,7 @@ func TestModifyNA(t *testing.T) {
 		}).
 		First()
 
-	if result.isEmpty() {
+	if result.IsEmpty() {
 		t.Fatal()
 	}
 	m := result.Get().(map[string]string)
