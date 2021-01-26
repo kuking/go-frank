@@ -24,22 +24,22 @@ func (o Optional) Get() interface{} {
 	return *o.value
 }
 
-func (o Optional) isPresent() bool {
+func (o Optional) IsPresent() bool {
 	return o.value != nil
 }
 
-func (o Optional) isEmpty() bool {
+func (o Optional) IsEmpty() bool {
 	return o.value == nil
 }
 
-func (o Optional) ifPresent(op interface{}) {
-	if o.isPresent() {
+func (o Optional) IfPresent(op interface{}) {
+	if o.IsPresent() {
 		reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(*o.value)})
 	}
 }
 
-func (o Optional) orElse(other interface{}) interface{} {
-	if o.isPresent() {
+func (o Optional) OrElse(other interface{}) interface{} {
+	if o.IsPresent() {
 		return o.Get()
 	} else {
 		return other
@@ -47,7 +47,7 @@ func (o Optional) orElse(other interface{}) interface{} {
 }
 
 func (o Optional) Map(op interface{}) Optional {
-	if o.isEmpty() {
+	if o.IsEmpty() {
 		return EmptyOptional()
 	}
 	return OptionalOf(reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(*o.value)})[0].Interface())

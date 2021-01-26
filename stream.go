@@ -150,7 +150,7 @@ func StreamGenerator(generator func() Optional) Stream {
 
 func streamGeneratorFeeder(s Stream, generator func() Optional) {
 	opt := generator()
-	for opt.isPresent() {
+	for opt.IsPresent() {
 		s.Feed(opt.Get())
 		opt = generator()
 	}

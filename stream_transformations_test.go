@@ -16,7 +16,7 @@ func TestReduce(t *testing.T) {
 		t.Fatal()
 	}
 	// zero elements reducer
-	if givenInt64ArrayStream(0).Reduce(func(l, r int64) int64 { return l + r }).First().isPresent() {
+	if givenInt64ArrayStream(0).Reduce(func(l, r int64) int64 { return l + r }).First().IsPresent() {
 		t.Fatal()
 	}
 	// one element reducerNA
@@ -24,7 +24,7 @@ func TestReduce(t *testing.T) {
 		t.Fatal()
 	}
 	// zero elements reducerNA
-	if givenInt64ArrayStream(0).ReduceNA(&Int64SumReducer{}).First().isPresent() {
+	if givenInt64ArrayStream(0).ReduceNA(&Int64SumReducer{}).First().IsPresent() {
 		t.Fatal()
 	}
 }
@@ -54,7 +54,7 @@ func TestSumInt64(t *testing.T) {
 		Map(func(s string) int64 { return int64(len(s)) }).
 		SumInt64().
 		First()
-	if !result.isPresent() || result.Get() != int64(20) {
+	if !result.IsPresent() || result.Get() != int64(20) {
 		t.Fatal()
 	}
 }

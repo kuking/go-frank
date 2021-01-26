@@ -30,7 +30,7 @@ func (s *streamImpl) Last() Optional {
 }
 
 func (s *streamImpl) IsEmpty() bool {
-	return s.First().isEmpty()
+	return s.First().IsEmpty()
 }
 
 func (s *streamImpl) Count() int {

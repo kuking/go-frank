@@ -50,7 +50,7 @@ func TestPositioningOnNonHeads(t *testing.T) {
 
 	s = s.FilterNA(func(v interface{}) bool { return v.(int) != 100000 })
 
-	if v := s.Pull(); v.isPresent() {
+	if v := s.Pull(); v.IsPresent() {
 		t.Fatal(v)
 	}
 	if s.CurrAbsPos() != 512 || s.PeekLimit() != 512 || s.Peek(0) != nil {

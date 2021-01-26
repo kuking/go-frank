@@ -21,10 +21,10 @@ func TestCount(t *testing.T) {
 }
 
 func TestEmptyFirstLast(t *testing.T) {
-	if givenInt64ArrayStream(0).Last().isPresent() {
+	if givenInt64ArrayStream(0).Last().IsPresent() {
 		t.Fatal()
 	}
-	if givenInt64ArrayStream(0).First().isPresent() {
+	if givenInt64ArrayStream(0).First().IsPresent() {
 		t.Fatal()
 	}
 }

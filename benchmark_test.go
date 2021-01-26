@@ -32,7 +32,7 @@ func BenchmarkSumInt(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.Reset()
-		if res := s.Sum().First(); !res.isPresent() || res.Get() != exp {
+		if res := s.Sum().First(); !res.IsPresent() || res.Get() != exp {
 			b.Fatal(res, exp)
 		}
 	}
