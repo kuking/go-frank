@@ -1,7 +1,9 @@
 package go_frank
 
 import (
+	"fmt"
 	"testing"
+	"time"
 )
 
 func TestPositioningAtStart(t *testing.T) {
@@ -110,5 +112,29 @@ func TestReset(t *testing.T) {
 	s.Pull()
 	if s.Reset() != 0 {
 		t.Fatal()
+	}
+}
+
+func TestWaitApproachInMemory(t *testing.T) {
+	s := EmptyStream(1024)
+	s.Wait(WaitingUpto10ms)
+	t0 := time.Now()
+	if s.Count() != 0 {
+		t.Fatal()
+	}
+	dur := time.Now().Sub(t0)
+	if dur.Milliseconds() < 10 {
+		t.Fatal(fmt.Sprintf("it should have waited at least 10ms, but it wait: %v", dur))
+	}
+
+	s.Feed("1")
+	s.Wait(UntilNoMoreData)
+	t0 = time.Now()
+	if s.Count() != 1 {
+		t.Fatal()
+	}
+	dur = time.Now().Sub(t0)
+	if dur.Nanoseconds() > 1_000_000 {
+		t.Fatal(fmt.Sprintf("it should have been lots faster, took: %v", dur))
 	}
 }

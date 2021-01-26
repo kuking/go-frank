@@ -290,7 +290,8 @@ func (s *mmapStream) Feed(elem interface{}) {
 	}
 }
 
-func (s *mmapStream) pullBySubId(subId int) (elem interface{}, closed bool) {
+func (s *mmapStream) pullBySubId(subId int, waitApproach WaitApproach) (elem interface{}, closed bool) {
+	var totalNsWait int64
 	for i := 0; ; i++ {
 		ofsRead := atomic.LoadUint64(&s.descriptor.SubRPos[subId])
 		ofsWrite := atomic.LoadUint64(&s.descriptor.Write)
@@ -311,10 +312,15 @@ func (s *mmapStream) pullBySubId(subId int) (elem interface{}, closed bool) {
 			if atomic.CompareAndSwapUint64(&s.descriptor.SubRPos[subId], ofsRead, ofsNewRead) {
 				return value, false
 			}
+		} else if s.IsClosed() {
+			return nil, true
 		}
 		runtime.Gosched()
-		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
-		if s.IsClosed() {
+		time.Sleep(time.Duration(i) * time.Nanosecond)
+		totalNsWait += int64(i)
+		if waitApproach == UntilClosed {
+			// just continue
+		} else if totalNsWait > int64(waitApproach) {
 			return nil, true
 		}
 	}

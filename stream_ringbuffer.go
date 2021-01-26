@@ -49,6 +49,7 @@ func (r *ringBufferProvider) Feed(elem interface{}) {
 }
 
 func (r *ringBufferProvider) Pull() (read interface{}, closed bool) {
+	var totalNsWait int64
 	rbs := uint64(len(r.ringBuffer))
 	for i := 0; ; i++ {
 		ringRead := atomic.LoadUint64(&r.ringRead)
@@ -61,9 +62,16 @@ func (r *ringBufferProvider) Pull() (read interface{}, closed bool) {
 				return val, false
 			}
 		}
+		otherThreadWriting := ringWrite != ringWAlloc
+		if ringRead == ringWAlloc && !otherThreadWriting && r.IsClosed() {
+			return nil, true
+		}
 		runtime.Gosched()
-		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
-		if r.IsClosed() {
+		time.Sleep(time.Duration(i) * time.Nanosecond)
+		totalNsWait += int64(i)
+		if r.WaitApproach == UntilClosed {
+			// just continue
+		} else if !otherThreadWriting && totalNsWait > int64(r.WaitApproach) {
 			return nil, true
 		}
 	}

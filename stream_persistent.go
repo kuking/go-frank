@@ -2,18 +2,18 @@ package go_frank
 
 func (s *mmapStream) Consume(clientName string) Stream {
 	subId := s.SubscriberIdForName(clientName)
-	fn := func() (read interface{}, closed bool) {
-		return s.pullBySubId(subId)
+	provider := &mmapStreamProviderForSubscriber{
+		subId:        subId,
+		waitApproach: UntilNoMoreData,
+		mmapStream:   s,
 	}
-	si := streamImpl{
-		provider: &mmapStreamProviderForSubscriber{
-			subId:        subId,
-			waitApproach: UntilNoMoreData,
-			mmapStream:   s,
-		},
-		pull: fn,
+	pullFn := func() (read interface{}, closed bool) {
+		return s.pullBySubId(subId, provider.waitApproach)
 	}
-	return &si
+	return &streamImpl{
+		provider: provider,
+		pull:     pullFn,
+	}
 }
 
 type mmapStreamProviderForSubscriber struct {
@@ -34,7 +34,7 @@ func (ms *mmapStreamProviderForSubscriber) IsClosed() bool {
 }
 
 func (ms *mmapStreamProviderForSubscriber) Pull() (elem interface{}, closed bool) {
-	return ms.mmapStream.pullBySubId(ms.subId)
+	return ms.mmapStream.pullBySubId(ms.subId, ms.waitApproach)
 }
 
 func (ms *mmapStreamProviderForSubscriber) Reset() uint64 {
