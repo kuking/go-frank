@@ -1,11 +1,15 @@
 
-all: clean build test coverage benchmark
+all: clean build test coverage benchmark binary
 
 clean:
+	rm -f franki
 	go clean -testcache -testcache
 
 build:
 	go build ./...
+
+binary:
+	go build -o franki cli/franki/main.go
 
 test:
 	go test ./...
@@ -19,3 +23,4 @@ benchmark:
 
 memory: clean
 	go tool compile "-m" stream.go # -S
+
