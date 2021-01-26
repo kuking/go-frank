@@ -1,6 +1,8 @@
 package go_frank
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestPositioningAtStart(t *testing.T) {
 	s := EmptyStream(1024)
@@ -42,12 +44,14 @@ func TestPositioningOnNonHeads(t *testing.T) {
 	for i := 0; i < 512; i++ {
 		s.Feed(i)
 	}
-	s = s.FilterNA(func(v interface{}) bool { return v.(int) == 100000 })
+	go s.Close()
 
-	if s.Pull().isPresent() {
-		t.Fatal()
+	s = s.FilterNA(func(v interface{}) bool { return v.(int) != 100000 })
+
+	if v := s.Pull(); v.isPresent() {
+		t.Fatal(v)
 	}
-	if s.CurrAbsPos() != 0 || s.PeekLimit() != 0 || s.Peek(0) != nil {
+	if s.CurrAbsPos() != 512 || s.PeekLimit() != 512 || s.Peek(0) != nil {
 		t.Fatal()
 	}
 }

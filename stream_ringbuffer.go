@@ -6,36 +6,36 @@ import (
 	"time"
 )
 
-type streamImpl struct {
+type ringBufferProvider struct {
 	ringBuffer []interface{}
 	ringRead   uint64
 	ringWrite  uint64
 	ringWAlloc uint64
 	closedFlag int32
-	pull       func(s *streamImpl) (read interface{}, closed bool)
-	prev       *streamImpl
 }
 
-func (s *streamImpl) chain(pullFn func(s *streamImpl) (read interface{}, closed bool)) *streamImpl {
-	return &streamImpl{prev: s, pull: pullFn}
+func newRingBufferProvider(capacity int) *ringBufferProvider {
+	return &ringBufferProvider{
+		ringBuffer: make([]interface{}, capacity),
+		ringRead:   0,
+		ringWrite:  0,
+		ringWAlloc: 0,
+		closedFlag: 0,
+	}
 }
 
 // Feeds an element into the stream
-func (s *streamImpl) Feed(elem interface{}) {
-	head := s
-	for head.prev != nil {
-		head = head.prev
-	}
-	rbs := uint64(len(head.ringBuffer))
+func (r *ringBufferProvider) Feed(elem interface{}) {
+	rbs := uint64(len(r.ringBuffer))
 	for i := 0; ; i++ {
-		ringRead := atomic.LoadUint64(&head.ringRead)
-		ringWrite := atomic.LoadUint64(&head.ringWrite)
-		ringWAlloc := atomic.LoadUint64(&head.ringWAlloc)
+		ringRead := atomic.LoadUint64(&r.ringRead)
+		ringWrite := atomic.LoadUint64(&r.ringWrite)
+		ringWAlloc := atomic.LoadUint64(&r.ringWAlloc)
 		ringWriteNextVal := ringWrite + 1
-		if ringWrite == ringWAlloc && ringWriteNextVal-uint64(len(head.ringBuffer)) != ringRead {
-			if atomic.CompareAndSwapUint64(&head.ringWAlloc, ringWAlloc, ringWriteNextVal) {
-				head.ringBuffer[ringWrite%rbs] = elem
-				if !atomic.CompareAndSwapUint64(&head.ringWrite, ringWrite, ringWriteNextVal) {
+		if ringWrite == ringWAlloc && ringWriteNextVal-uint64(len(r.ringBuffer)) != ringRead {
+			if atomic.CompareAndSwapUint64(&r.ringWAlloc, ringWAlloc, ringWriteNextVal) {
+				r.ringBuffer[ringWrite%rbs] = elem
+				if !atomic.CompareAndSwapUint64(&r.ringWrite, ringWrite, ringWriteNextVal) {
 					panic("failed to commit allocated write in ring-buffer")
 				}
 				return
@@ -46,38 +46,34 @@ func (s *streamImpl) Feed(elem interface{}) {
 	}
 }
 
-func ringPull(s *streamImpl) (read interface{}, closer bool) {
-	rbs := uint64(len(s.ringBuffer))
+func (r *ringBufferProvider) Pull() (read interface{}, closed bool) {
+	rbs := uint64(len(r.ringBuffer))
 	for i := 0; ; i++ {
-		ringRead := atomic.LoadUint64(&s.ringRead)
-		ringWrite := atomic.LoadUint64(&s.ringWrite)
-		ringWAlloc := atomic.LoadUint64(&s.ringWAlloc)
+		ringRead := atomic.LoadUint64(&r.ringRead)
+		ringWrite := atomic.LoadUint64(&r.ringWrite)
+		ringWAlloc := atomic.LoadUint64(&r.ringWAlloc)
 		if ringRead != ringWrite && ringWrite == ringWAlloc {
 			ringReadNextVal := ringRead + 1
-			val := s.ringBuffer[ringRead%rbs]
-			if atomic.CompareAndSwapUint64(&s.ringRead, ringRead, ringReadNextVal) {
+			val := r.ringBuffer[ringRead%rbs]
+			if atomic.CompareAndSwapUint64(&r.ringRead, ringRead, ringReadNextVal) {
 				return val, false
 			}
 		}
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
-		if s.IsClosed() {
+		if r.IsClosed() {
 			return nil, true
 		}
 	}
 }
 
 // Closes the stream
-func (s *streamImpl) Close() {
-	head := s
-	for head.prev != nil {
-		head = head.prev
-	}
+func (r *ringBufferProvider) Close() {
 	for i := 0; ; i++ {
-		ringRead := atomic.LoadUint64(&head.ringRead)
-		ringWrite := atomic.LoadUint64(&head.ringWrite)
+		ringRead := atomic.LoadUint64(&r.ringRead)
+		ringWrite := atomic.LoadUint64(&r.ringWrite)
 		if ringRead == ringWrite {
-			atomic.StoreInt32(&head.closedFlag, 1)
+			atomic.StoreInt32(&r.closedFlag, 1)
 			return
 		}
 		runtime.Gosched()
@@ -85,67 +81,38 @@ func (s *streamImpl) Close() {
 	}
 }
 
-func (s *streamImpl) IsClosed() bool {
-	head := s
-	for head.prev != nil {
-		head = head.prev
-	}
-	return atomic.LoadInt32(&head.closedFlag) != 0
+func (r *ringBufferProvider) IsClosed() bool {
+	return atomic.LoadInt32(&r.closedFlag) != 0
 }
 
 // Resets the stream position to zero, not always possible.
 // hack, needs more assertions around resetting non-resettable buffers
-func (s *streamImpl) Reset() uint64 {
-	if s.prev == nil {
-		if atomic.LoadUint64(&s.ringWrite) > uint64(len(s.ringBuffer)) {
-			return atomic.LoadUint64(&s.ringRead)
-		}
-		atomic.StoreUint64(&s.ringRead, 0)
-		if atomic.LoadInt32(&s.closedFlag) != 0 {
-			atomic.StoreInt32(&s.closedFlag, 0)
-			go s.Close()
-		}
-		return 0
+func (r *ringBufferProvider) Reset() uint64 {
+	if atomic.LoadUint64(&r.ringWrite) > uint64(len(r.ringBuffer)) {
+		return atomic.LoadUint64(&r.ringRead)
+	}
+	atomic.StoreUint64(&r.ringRead, 0)
+	if atomic.LoadInt32(&r.closedFlag) != 0 {
+		atomic.StoreInt32(&r.closedFlag, 0)
+		go r.Close()
 	}
 	return 0
 }
 
-func (s *streamImpl) CurrAbsPos() uint64 {
-	if s.prev != nil {
-		return 0
-	}
-	return atomic.LoadUint64(&s.ringRead)
+func (r *ringBufferProvider) CurrAbsPos() uint64 {
+	return atomic.LoadUint64(&r.ringRead)
 }
 
-func (s *streamImpl) PeekLimit() uint64 {
-	if s.prev != nil {
-		return 0
-	}
-	return atomic.LoadUint64(&s.ringWrite)
+func (r *ringBufferProvider) PeekLimit() uint64 {
+	return atomic.LoadUint64(&r.ringWrite)
 }
 
-func (s *streamImpl) Peek(absPos uint64) interface{} {
-	if s.prev != nil {
-		return nil
-	}
-	rbs := uint64(len(s.ringBuffer))
-	ringRead := atomic.LoadUint64(&s.ringRead)
-	ringWrite := atomic.LoadUint64(&s.ringWrite)
+func (r *ringBufferProvider) Peek(absPos uint64) interface{} {
+	rbs := uint64(len(r.ringBuffer))
+	ringRead := atomic.LoadUint64(&r.ringRead)
+	ringWrite := atomic.LoadUint64(&r.ringWrite)
 	if absPos < ringRead || absPos > ringWrite {
 		return nil
 	}
-	return s.ringBuffer[absPos%rbs]
-}
-
-// This is not mean to be used as standard API but on specific cases (i.e. to implement Binary Search). Blocks until
-// an element is in the Stream, or the Stream is Closed()
-func (s *streamImpl) Pull() Optional {
-	if s.prev != nil {
-		return EmptyOptional()
-	}
-	value, closed := s.pull(s)
-	if closed {
-		return EmptyOptional()
-	}
-	return OptionalOf(value)
+	return r.ringBuffer[absPos%rbs]
 }

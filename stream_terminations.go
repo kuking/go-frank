@@ -13,22 +13,17 @@ import (
 // --------------------------------------------------------------------------------------------------------------------
 
 func (s *streamImpl) First() Optional {
-	read, closed := s.pull(s)
-	if closed {
-		return EmptyOptional()
-	}
-
-	return OptionalOf(read)
+	return s.Pull()
 }
 
 func (s *streamImpl) Last() Optional {
-	read, closed := s.pull(s)
+	read, closed := s.pull()
 	if closed {
 		return EmptyOptional()
 	}
 	for {
 		lastRead := read
-		read, closed = s.pull(s)
+		read, closed = s.pull()
 		if closed {
 			return OptionalOf(lastRead)
 		}
@@ -51,7 +46,7 @@ func (s *streamImpl) CountUint64() (c uint64) {
 	c = 0
 	closed := false
 	for !closed {
-		_, closed = s.pull(s)
+		_, closed = s.pull()
 		if !closed {
 			c++
 		}
@@ -64,7 +59,7 @@ func (s *streamImpl) AsArray() (result []interface{}) {
 	var read interface{}
 	closed := false
 	for !closed {
-		read, closed = s.pull(s)
+		read, closed = s.pull()
 		if !closed {
 			result = append(result, read)
 		}
@@ -73,12 +68,12 @@ func (s *streamImpl) AsArray() (result []interface{}) {
 }
 
 func (s *streamImpl) AllMatch(op interface{}) bool {
-	val, closed := s.pull(s)
-	for ; !closed; {
+	val, closed := s.pull()
+	for !closed {
 		if !reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(val)})[0].Bool() {
 			return false
 		}
-		val, closed = s.pull(s)
+		val, closed = s.pull()
 	}
 	return true
 }
@@ -88,24 +83,24 @@ func (s *streamImpl) NoneMatch(op interface{}) bool {
 }
 
 func (s *streamImpl) AtLeastOne(op interface{}) bool {
-	val, closed := s.pull(s)
-	for ; !closed; {
+	val, closed := s.pull()
+	for !closed {
 		if reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(val)})[0].Bool() {
 			return true
 		}
-		val, closed = s.pull(s)
+		val, closed = s.pull()
 	}
 	return false
 }
 
 func (s *streamImpl) ForEach(op interface{}) {
-	val, closed := s.pull(s)
+	val, closed := s.pull()
 	if closed {
 		return
 	}
-	for ; !closed; {
+	for !closed {
 		reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(val)})
-		val, closed = s.pull(s)
+		val, closed = s.pull()
 	}
 }
 

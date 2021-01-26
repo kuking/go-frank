@@ -377,12 +377,19 @@ func mmapOpen(filename string) (mmap.MMap, error) {
 	return mmap.Map(f, mmap.RDWR, 0)
 }
 
-// ---- Standard Stream API ------------------------------------------------------------------------------------------
-
 func (s *mmapStream) Close() {
 	atomic.StoreUint32(&s.descriptor.Closed, 1)
 }
 
 func (s *mmapStream) IsClosed() bool {
 	return atomic.LoadUint32(&s.descriptor.Closed) != 0
+}
+
+func (s *mmapStream) Pull() (elem interface{}, closed bool) {
+	return nil, true // it can not be consumed without a consumerId
+}
+
+func (s *mmapStream) Reset(subId int) uint64 {
+	atomic.StoreUint64(&s.descriptor.SubRPos[subId], 0) //XXX: fix when prune is implemented
+	return 0
 }

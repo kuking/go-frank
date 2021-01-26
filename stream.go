@@ -99,14 +99,10 @@ type PersistentStream interface {
 // multithreading consumer/producer scenarios, not for simple consumers i.e. e. an array of elements (use ArrayStream)
 // or for creating a stream with a generator function (see StreamGenerator)
 func EmptyStream(capacity int) Stream {
+	rb := newRingBufferProvider(capacity)
 	return &streamImpl{
-		ringBuffer: make([]interface{}, capacity),
-		ringRead:   0,
-		ringWrite:  0,
-		ringWAlloc: 0,
-		closedFlag: 0,
-		pull:       ringPull,
-		prev:       nil,
+		provider: rb,
+		pull:     rb.Pull,
 	}
 }
 

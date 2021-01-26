@@ -1,20 +1,54 @@
 package go_frank
 
-func (p *mmapStream) Consume(clientName string) Stream {
-	subId := p.SubscriberIdForName(clientName)
-	fn := func(s *streamImpl) (read interface{}, closed bool) {
-		return p.pullBySubId(subId)
+func (s *mmapStream) Consume(clientName string) Stream {
+	subId := s.SubscriberIdForName(clientName)
+	fn := func() (read interface{}, closed bool) {
+		return s.pullBySubId(subId)
 	}
-	s := streamImpl{
-		ringBuffer: nil,
-		ringRead:   0,
-		ringWrite:  0,
-		ringWAlloc: 0,
-		closedFlag: 0,
-		pull:       fn,
-		prev:       nil,
+	si := streamImpl{
+		provider: &mmapStreamProviderSubscriberAware{
+			subId:      subId,
+			mmapStream: s,
+		},
+		pull: fn,
 	}
+	return &si
+}
 
-	return &s
+type mmapStreamProviderSubscriberAware struct {
+	subId      int
+	mmapStream *mmapStream
+}
 
+func (ms *mmapStreamProviderSubscriberAware) Feed(elem interface{}) {
+	ms.mmapStream.Feed(elem)
+}
+func (ms *mmapStreamProviderSubscriberAware) Close() {
+	ms.mmapStream.Close()
+}
+
+func (ms *mmapStreamProviderSubscriberAware) IsClosed() bool {
+	return ms.mmapStream.IsClosed()
+}
+
+func (ms *mmapStreamProviderSubscriberAware) Pull() (elem interface{}, closed bool) {
+	return ms.mmapStream.Pull()
+}
+func (ms *mmapStreamProviderSubscriberAware) Reset() uint64 {
+	return ms.mmapStream.Reset(ms.subId)
+}
+
+func (ms *mmapStreamProviderSubscriberAware) CurrAbsPos() uint64 {
+	//XXX: implement
+	return 0
+}
+
+func (ms *mmapStreamProviderSubscriberAware) PeekLimit() uint64 {
+	//XXX: implement
+	return 0
+}
+
+func (ms *mmapStreamProviderSubscriberAware) Peek(absPos uint64) interface{} {
+	//XXX: implement
+	return nil
 }
