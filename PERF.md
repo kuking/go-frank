@@ -58,3 +58,27 @@ $ ./franki sub_bench
 Total= 100M IOP; 10000Mb Bytes. Performance=0.39M IOPS; 39.03Mb/s.
 ```
 
+
+### Intel(R) Core(TM) i7-8559U CPU @ 2.70GHz (2018 mac 1TB NVMe)
+
+```
+$  head -c 100000000000 /dev/zero | pv -ba > file
+93.1GiB [2.02GiB/s]
+$ cat file | pv -ba >/dev/null
+93.1GiB [2.17GiB/s]
+```
+
+```
+$ ./franki -ps 1024 -miop 1000 pub_bench
+Totals=1000M IOP; 100000MB; Perfs=6.21M IOPS; 621.36MB/s; avg 160ns/iop; [100%]
+$ ./franki sub_bench
+Totals=1000M IOP; 100000MB; Perfs=2.01M IOPS; 200.59MB/s; avg 498ns/iop; [+Inf%]
+
+```
+
+```
+$ ./franki -evs 0 pub_bench
+Totals=100M IOP; 0MB; Perfs=12.34M IOPS; 0.00MB/s; avg 81ns/iop; [100%]
+$ ./franki sub_bench
+Totals=100M IOP; 0MB; Perfs=10.53M IOPS; 0.00MB/s; avg 95ns/iop; [+Inf%]
+```
