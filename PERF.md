@@ -11,7 +11,9 @@ prob. IO saturated, disk is encrypted, see below:
 ```
 # AMD Ryzen 7 3800X, 64GB RAM, Force MP510 (ECFM22.5)
 % head -c 100000000000 /dev/zero | pv -ba > file
-93.1GiB [ 836MiB/s]
+93.1GiB [ 831MiB/s]
+% cat file | pv -ba >/dev/null
+93.1GiB [ 878MiB/s]
 ```
 
 ```
