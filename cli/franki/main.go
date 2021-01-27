@@ -11,6 +11,8 @@ import (
 )
 
 var partSize uint64
+var miop uint
+var eventSize uint
 var baseFile string
 var clientName string
 var waitApproach int64
@@ -20,6 +22,8 @@ var cmd string
 
 func doArgsParsing() bool {
 	flag.Uint64Var(&partSize, "ps", 256, "part size in Mb.")
+	flag.UintVar(&miop, "miop", 100, "mega-iop to publish (for pub_bench).")
+	flag.UintVar(&eventSize, "evs", 100, "event-size in bytes (for pub_bench)")
 	flag.StringVar(&baseFile, "bs", "persistent-stream", "Base file path")
 	flag.StringVar(&clientName, "cn", "client-1", "Client name")
 	flag.Int64Var(&waitApproach, "wa", int64(frank.UntilNoMoreData), "Wait approach: -1 until closed, 0 until no more data, N ms wait.")
@@ -56,18 +60,19 @@ Examples:
 	return true
 }
 
-func logStats(t0 *time.Time, iop uint64, bytes uint64, last bool) {
+func logStats(t0 *time.Time, iop uint64, totalIop uint64, bytes uint64, last bool) {
 	if iop%1_000_000 == 0 || last {
 		dur := time.Now().Sub(*t0)
-		mops := iop / 1000 / 1000
-		mbytes := bytes / 1000 / 1000
+		mops := iop / 1_000_000
+		mb := bytes / 1_000_000
+		completed := float64(iop*100) / float64(totalIop)
 		ch := "\r"
 		if last {
 			ch = "\n"
 		}
-		fmt.Printf("Total=%4dM IOP; %dMb Bytes. Performance=%2.2fM IOPS; %2.2fMb/s; avg %v/iop    %v",
-			mops, mbytes, float64(mops)/dur.Seconds(), float64(mbytes)/dur.Seconds(),
-			time.Duration(dur.Nanoseconds()/int64(iop+1)), ch)
+		fmt.Printf("Totals=%dM IOP; %dMB; Perfs=%2.2fM IOPS; %2.2fMB/s; avg %v/iop; [%0.0f%%]     %v",
+			mops, mb, float64(mops)/dur.Seconds(), float64(mb)/dur.Seconds(),
+			time.Duration(dur.Nanoseconds()/int64(iop+1)), completed, ch)
 	}
 }
 
@@ -102,20 +107,20 @@ func main() {
 		fmt.Println("need to implement")
 	} else if cmd == "pub_bench" {
 		buf := make([]byte, 0)
-		bufS := 100
+		bufS := int(eventSize)
 		for i := 0; i < bufS; i++ {
 			buf = append(buf, byte('A'+i%20))
 		}
 		t0 := time.Now()
 		i := 0
-		for i = 0; i < 100_000_000; i++ {
+		for i = 0; i < int(miop)*1_000_000; i++ {
 			p.Feed(buf)
-			logStats(&t0, uint64(i), uint64(i*bufS), false)
+			logStats(&t0, uint64(i), uint64(miop*1_000_000), uint64(i*bufS), false)
 		}
 		if err = p.CloseFile(); err != nil {
 			log.Fatal(err)
 		}
-		logStats(&t0, uint64(i), uint64(i*bufS), true)
+		logStats(&t0, uint64(i), uint64(miop*1_000_000), uint64(i*bufS), true)
 		os.Exit(0)
 	} else if cmd == "sub_bench" {
 		t0 := time.Now()
@@ -130,9 +135,9 @@ func main() {
 			} else {
 				break
 			}
-			logStats(&t0, uint64(i), uint64(bytes), false)
+			logStats(&t0, uint64(i), 0, uint64(bytes), false)
 		}
-		logStats(&t0, uint64(i), uint64(bytes), true)
+		logStats(&t0, uint64(i), 0, uint64(bytes), true)
 	}
 
 	if err := p.CloseFile(); err != nil {
