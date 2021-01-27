@@ -23,6 +23,9 @@ import (
 const (
 	mmapStreamFileVersion uint64 = 1
 	mmapStreamMaxClients  int    = 64
+	mmapStreamHeaderSize  int    = 2048
+	mmapPartHeaderSize    int    = 1024
+	entryHeaderSize       int    = 8
 )
 
 type mmapStreamDescriptor struct {
@@ -65,7 +68,7 @@ type mmapPart struct {
 
 func createMmapPart(baseFilename string, uniqId, partNo, partSize uint64) (err error) {
 	fdpPath := baseFilename + fmt.Sprintf(".%05x", partNo)
-	if err = mmapInit(fdpPath, 1024+int(partSize)); err != nil {
+	if err = mmapInit(fdpPath, mmapPartHeaderSize+int(partSize)); err != nil {
 		return
 	}
 
@@ -102,24 +105,24 @@ func openMmapPart(baseFilename string, uniqId, partNo, partSize uint64, serialis
 }
 
 func (mp *mmapPart) WriteAt(absOfs uint64, elem interface{}, elemLength uint64) {
-	localOfs := 1024 + int(absOfs%mp.partSize)
+	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
 	binary.LittleEndian.PutUint64(mp.mmap[localOfs:], elemLength)
-	if err := mp.serialiser.Encode(elem, mp.mmap[localOfs+8:localOfs+8]); err != nil {
+	if err := mp.serialiser.Encode(elem, mp.mmap[localOfs+entryHeaderSize:]); err != nil {
 		panic(fmt.Sprintf("could not write in part, err: %v", err))
 	}
 }
 
 func (mp *mmapPart) WriteEoP(absOfs uint64) {
-	localOfs := 1024 + int(absOfs%mp.partSize)
-	if uint64(localOfs+8) > mp.partSize+1024 {
+	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
+	if uint64(localOfs+entryHeaderSize) > mp.partSize+uint64(mmapPartHeaderSize) {
 		return
 	}
 	binary.LittleEndian.PutUint64(mp.mmap[localOfs:], math.MaxUint64)
 }
 
 func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint64) {
-	localOfs := 1024 + int(absOfs%mp.partSize)
-	if uint64(localOfs+8) > mp.partSize+1024 {
+	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
+	if uint64(localOfs+entryHeaderSize) > mp.partSize+uint64(mmapPartHeaderSize) {
 		return nil, math.MaxUint64
 	}
 	elemLength = binary.LittleEndian.Uint64(mp.mmap[localOfs:])
@@ -127,7 +130,7 @@ func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint64) 
 		return // we probably need the next part
 	}
 	var err error
-	elem, err = mp.serialiser.Decode(mp.mmap[localOfs+8 : localOfs+8+int(elemLength)])
+	elem, err = mp.serialiser.Decode(mp.mmap[localOfs+entryHeaderSize : localOfs+entryHeaderSize+int(elemLength)])
 	if err != nil {
 		panic(fmt.Sprintf("could not read in part, err: %v", err))
 	}
@@ -155,7 +158,7 @@ func mmapStreamCreate(baseFilename string, partSize uint64, serialiser StreamSer
 	}
 	rand.Seed(time.Now().Unix())
 	fdfPath := baseFilename + ".frank"
-	if err = mmapInit(fdfPath, 2048); err != nil {
+	if err = mmapInit(fdfPath, mmapStreamHeaderSize); err != nil {
 		return nil, err
 	}
 	mm, err := mmapOpen(fdfPath)
@@ -264,7 +267,7 @@ func (s *mmapStream) Feed(elem interface{}) {
 		log.Println("error retrieving encoded size, won't recover from this probably, err:", err)
 		return
 	}
-	encodedSizePlusHeader := encodedSize + 8 // uint64 for length
+	encodedSizePlusHeader := encodedSize + uint64(entryHeaderSize) // uint64 for length
 
 	for i := 0; ; i++ {
 		ofsWrite := atomic.LoadUint64(&s.descriptor.Write)
@@ -316,9 +319,9 @@ func (s *mmapStream) pullBySubId(subId int, waitApproach WaitApproach) (elem int
 				endSlack := s.descriptor.PartSize - (ofsRead % s.descriptor.PartSize)
 				part = s.resolvePart(subId, partNo)
 				value, length = part.ReadAt(ofsRead + endSlack)
-				ofsNewRead = ofsRead + endSlack + 8 + length
+				ofsNewRead = ofsRead + endSlack + uint64(entryHeaderSize) + length
 			} else {
-				ofsNewRead = ofsRead + 8 + length
+				ofsNewRead = ofsRead + uint64(entryHeaderSize) + length
 			}
 			if atomic.CompareAndSwapUint64(&s.descriptor.SubRPos[subId], ofsRead, ofsNewRead) {
 				return value, false
