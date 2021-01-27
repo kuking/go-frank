@@ -56,6 +56,21 @@ Examples:
 	return true
 }
 
+func logStats(t0 *time.Time, iop uint64, bytes uint64, last bool) {
+	if iop%1_000_000 == 0 || last {
+		dur := time.Now().Sub(*t0)
+		mops := iop / 1000 / 1000
+		mbytes := bytes / 1000 / 1000
+		ch := "\r"
+		if last {
+			ch = "\n"
+		}
+		fmt.Printf("Total=%4dM IOP; %dMb Bytes. Performance=%2.2fM IOPS; %2.2fMb/s; avg %v/iop    %v",
+			mops, mbytes, float64(mops)/dur.Seconds(), float64(mbytes)/dur.Seconds(),
+			time.Duration(dur.Nanoseconds()/int64(iop+1)), ch)
+	}
+}
+
 func main() {
 	if !doArgsParsing() {
 		os.Exit(-1)
@@ -91,28 +106,18 @@ func main() {
 		for i := 0; i < bufS; i++ {
 			buf = append(buf, byte('A'+i%20))
 		}
-		format := "Total=%4dM IOP; %dMb Bytes. Performance=%2.2fM IOPS; %2.2fMb/s."
-		var dur time.Duration
 		t0 := time.Now()
 		i := 0
 		for i = 0; i < 100_000_000; i++ {
 			p.Feed(buf)
-			if i%1000_000 == 0 {
-				dur = time.Now().Sub(t0)
-				mops := i / 1000 / 1000
-				fmt.Printf(format+"    \r", mops, mops*bufS, float64(mops)/dur.Seconds(), float64(mops*bufS)/dur.Seconds())
-			}
+			logStats(&t0, uint64(i), uint64(i*bufS), false)
 		}
 		if err = p.CloseFile(); err != nil {
 			log.Fatal(err)
 		}
-		dur = time.Now().Sub(t0)
-		mops := i / 1000 / 1000
-		fmt.Printf(format+"    \n", mops, mops*bufS, float64(mops)/dur.Seconds(), float64(mops*bufS)/dur.Seconds())
+		logStats(&t0, uint64(i), uint64(i*bufS), true)
 		os.Exit(0)
 	} else if cmd == "sub_bench" {
-		format := "Total=%4dM IOP; %dMb Bytes. Performance=%2.2fM IOPS; %2.2fMb/s."
-		var dur time.Duration
 		t0 := time.Now()
 		s := p.Consume(clientName)
 		bytes := 0
@@ -125,18 +130,9 @@ func main() {
 			} else {
 				break
 			}
-			if i%1000_000 == 0 {
-				dur = time.Now().Sub(t0)
-				mops := i / 1000 / 1000
-				megas := bytes / 1000 / 1000
-				fmt.Printf(format+"    \r", mops, megas, float64(mops)/dur.Seconds(), float64(megas)/dur.Seconds())
-			}
+			logStats(&t0, uint64(i), uint64(bytes), false)
 		}
-		dur = time.Now().Sub(t0)
-		mops := i / 1000 / 1000
-		megas := bytes / 1000 / 1000
-		fmt.Printf(format+"    \n", mops, megas, float64(mops)/dur.Seconds(), float64(megas)/dur.Seconds())
-
+		logStats(&t0, uint64(i), uint64(bytes), true)
 	}
 
 	if err := p.CloseFile(); err != nil {
