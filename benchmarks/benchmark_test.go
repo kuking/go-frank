@@ -3,8 +3,8 @@ package benchmarks
 import (
 	"fmt"
 	frank "github.com/kuking/go-frank"
-	"github.com/kuking/go-frank/api"
 	"github.com/kuking/go-frank/base"
+	"github.com/kuking/go-frank/extras"
 	"testing"
 )
 
@@ -167,7 +167,7 @@ func BenchmarkModifyNA(b *testing.B) {
 func BenchmarkGeneratorSumInt64(b *testing.B) {
 	total := b.N
 	exp := int64(total * (total - 1) / 2)
-	s := givenInt64StreamGenerator(total)
+	s := extras.Int64Generator(0, int64(total))
 	b.ReportAllocs()
 	b.ResetTimer()
 	if res := s.SumInt64().First(); res.IsEmpty() && res.Get() != exp {
@@ -178,7 +178,7 @@ func BenchmarkGeneratorSumInt64(b *testing.B) {
 
 func BenchmarkGeneratorFilterNA(b *testing.B) {
 	total := b.N
-	s := givenInt64StreamGenerator(total)
+	s := extras.Int64Generator(0, int64(total))
 	b.ReportAllocs()
 	b.ResetTimer()
 	if res := s.FilterNA(func(i interface{}) bool { return i.(int64)%2 == 0 }).Count(); res != (total+1)/2 {
@@ -189,11 +189,11 @@ func BenchmarkGeneratorFilterNA(b *testing.B) {
 
 func BenchmarkGeneratorCounter(b *testing.B) {
 	total := b.N
-	s := givenInt64StreamGenerator(total)
+	s := extras.Int64Generator(0, int64(total))
 	b.ReportAllocs()
 	b.ResetTimer()
 	if res := s.Count(); res != total {
-		b.Fatal()
+		b.Fatal(fmt.Sprintf("%v != %v", res, total))
 	}
 	b.StopTimer()
 }
@@ -212,15 +212,4 @@ func givenInt64Array(count int) []interface{} {
 		elems[i] = int64(i)
 	}
 	return elems
-}
-
-func givenInt64StreamGenerator(total int) api.Stream {
-	count := int64(0)
-	return frank.StreamGenerator(func() api.Optional {
-		count++
-		if count <= int64(total) {
-			return api.OptionalOf(count)
-		}
-		return api.EmptyOptional()
-	})
 }
