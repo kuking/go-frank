@@ -26,3 +26,15 @@ func StreamGenerator(generator func() api.Optional) api.Stream {
 func PersistentStream(basePath string, partSize uint64, serialiser serialisation.StreamSerialiser) (api.PersistentStream, error) {
 	return persistent.OpenCreatePersistentStream(basePath, partSize, serialiser)
 }
+
+func Subscribe(uri string) (api.Stream, error) {
+	return base.Subscribe(uri)
+}
+
+func SubscribeNE(uri string) api.Stream {
+	s, err := base.Subscribe(uri)
+	if err != nil {
+		return EmptyStream(0)
+	}
+	return s
+}

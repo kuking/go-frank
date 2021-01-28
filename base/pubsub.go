@@ -1,6 +1,9 @@
 package base
 
-import "github.com/kuking/go-frank/api"
+import (
+	"github.com/kuking/go-frank/api"
+	"github.com/kuking/go-frank/registry"
+)
 
 // uri formats
 //
@@ -35,10 +38,12 @@ import "github.com/kuking/go-frank/api"
 // offset, subscriberId are supported.
 //
 
-func Subscribe(uri string) api.Stream {
-	return nil
+var LocalRegistry = registry.NewInMemoryRegistry()
+
+func Subscribe(uri string) (api.Stream, error) {
+	return LocalRegistry.Obtain(uri)
 }
 
-func (s *StreamImpl) Publish(uri string) { //Publisher struct
-
+func (s *StreamImpl) Publish(name string) {
+	LocalRegistry.Register(name, s)
 }
