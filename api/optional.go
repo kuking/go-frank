@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -51,4 +52,12 @@ func (o Optional) Map(op interface{}) Optional {
 		return EmptyOptional()
 	}
 	return OptionalOf(reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(*o.value)})[0].Interface())
+}
+
+func (o Optional) String() string {
+	if o.IsEmpty() {
+		return "<empty>"
+	} else {
+		return fmt.Sprint(o.Get())
+	}
 }

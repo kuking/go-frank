@@ -46,3 +46,14 @@ func TestOptionalOf(t *testing.T) {
 		t.Fatal()
 	}
 }
+
+func TestOptional_String(t *testing.T) {
+	opt := OptionalOf(123)
+	if fmt.Sprint(opt) != "123" {
+		t.Fatal()
+	}
+	opt = EmptyOptional()
+	if fmt.Sprint(opt) != "<empty>" {
+		t.Fatal()
+	}
+}
