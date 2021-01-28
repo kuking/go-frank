@@ -2,7 +2,7 @@
 all: clean build test coverage benchmark binary
 
 clean:
-	rm -f franki
+	rm -f franki coverage.out
 	go clean -testcache -testcache
 
 build:
