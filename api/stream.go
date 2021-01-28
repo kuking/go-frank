@@ -85,6 +85,7 @@ type PersistentStream interface {
 	//Newest() uint64
 	//Statistics() map[string]interface{}
 
+	Publish(uri string)
 	// Subscribing, wait approach is UntilNoMoreData
 	Consume(clientName string) Stream
 }

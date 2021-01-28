@@ -29,6 +29,10 @@ func (s *mmapStream) Consume(clientName string) api.Stream {
 	return base.NewStreamImpl(provider, pullFn)
 }
 
+func (s *mmapStream) Publish(uri string) {
+	base.LocalRegistry.Register(uri, s)
+}
+
 type mmapStreamProviderForSubscriber struct {
 	subId        int
 	waitApproach api.WaitApproach
