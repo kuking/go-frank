@@ -1,4 +1,4 @@
-package benchs
+package benchmarks
 
 import (
 	"fmt"
