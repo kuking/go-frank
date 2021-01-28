@@ -1,4 +1,4 @@
-package go_frank
+package persistent
 
 import (
 	"github.com/kuking/go-frank/api"
