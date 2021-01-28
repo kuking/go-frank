@@ -11,17 +11,8 @@ import (
 // Builders
 //
 // --------------------------------------------------------------------------------------------------------------------
-
-// Creates am empty api.Stream with the required capacity in its ring buffer; the api.Stream is not cosed. If used directly with
-// a termination function, it will block waiting for the Closing signal. This constructor is meant to be used in a
-// multithreading consumer/producer scenarios, not for simple consumers i.e. e. an array of elements (use Arrayapi.Stream)
-// or for creating a api.Stream with a generator function (see api.StreamGenerator). Default blocking approach is UntilClosed.
 func EmptyStream(capacity int) api.Stream {
 	rb := ringbuffer.NewRingBufferProvider(capacity)
-	//return StreamImpl{
-	//	provider: rb,
-	//	pull:     rb.Pull,
-	//}
 	return NewStreamImpl(rb, rb.Pull)
 }
 

@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	frank "github.com/kuking/go-frank"
 	"github.com/kuking/go-frank/api"
-	"github.com/kuking/go-frank/persistent"
 	"github.com/kuking/go-frank/serialisation"
 	"log"
 	"os"
@@ -87,7 +87,7 @@ func main() {
 		waitApproach *= 1_000_000
 	}
 
-	p, err := persistent.OpenCreatePersistentStream(baseFile, partSize*1024*1024, serialisation.ByteArraySerialiser{})
+	p, err := frank.PersistentStream(baseFile, partSize*1024*1024, serialisation.ByteArraySerialiser{})
 	if err != nil {
 		log.Fatal(err)
 	}
