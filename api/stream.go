@@ -1,7 +1,6 @@
-package go_frank
+package api
 
 import (
-	"github.com/kuking/go-frank/serialisation"
 	"reflect"
 )
 
@@ -105,65 +104,4 @@ type Reducer interface {
 	First(interface{})
 	Next(interface{})
 	Result() interface{}
-}
-
-// --------------------------------------------------------------------------------------------------------------------
-//
-// Builders
-//
-// --------------------------------------------------------------------------------------------------------------------
-
-// Creates am empty stream with the required capacity in its ring buffer; the stream is not cosed. If used directly with
-// a termination function, it will block waiting for the Closing signal. This constructor is meant to be used in a
-// multithreading consumer/producer scenarios, not for simple consumers i.e. e. an array of elements (use ArrayStream)
-// or for creating a stream with a generator function (see StreamGenerator). Default blocking approach is UntilClosed.
-func EmptyStream(capacity int) Stream {
-	rb := newRingBufferProvider(capacity)
-	return &streamImpl{
-		provider: rb,
-		pull:     rb.Pull,
-	}
-}
-
-func ArrayStream(elems interface{}) Stream {
-	var s Stream
-	slice := reflect.ValueOf(elems)
-	if slice.Kind() == reflect.Slice {
-		s = EmptyStream(slice.Len() + 1)
-		for i := 0; i < slice.Len(); i++ {
-			s.Feed(slice.Index(i).Interface())
-		}
-	} else {
-		s = EmptyStream(2)
-		if elems != nil {
-			s.Feed(elems)
-		}
-	}
-	go s.Close()
-	return s
-}
-
-func StreamGenerator(generator func() Optional) Stream {
-	s := EmptyStream(1024)
-	go streamGeneratorFeeder(s, generator)
-	return s
-}
-
-func streamGeneratorFeeder(s Stream, generator func() Optional) {
-	opt := generator()
-	for opt.IsPresent() {
-		s.Feed(opt.Get())
-		opt = generator()
-	}
-	s.Close()
-}
-
-func OpenCreatePersistentStream(basePath string, partSize uint64, serialiser serialisation.StreamSerialiser) (ps PersistentStream, err error) {
-	ps, err = mmapStreamOpen(basePath, serialiser)
-	if err == nil {
-		return
-	} else {
-		ps, err = mmapStreamCreate(basePath, partSize, serialiser)
-		return
-	}
 }

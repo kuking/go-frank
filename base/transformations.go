@@ -1,6 +1,8 @@
-package go_frank
+package base
 
 import (
+	"github.com/kuking/go-frank/api"
+	"github.com/kuking/go-frank/misc"
 	"reflect"
 )
 
@@ -10,7 +12,7 @@ import (
 //
 // --------------------------------------------------------------------------------------------------------------------
 
-func (s *streamImpl) Reduce(op interface{}) Stream {
+func (s *StreamImpl) Reduce(op interface{}) api.Stream {
 	return s.chain(func() (read interface{}, closed bool) {
 		left, closed := s.pull()
 		if closed {
@@ -22,12 +24,12 @@ func (s *streamImpl) Reduce(op interface{}) Stream {
 				return left, false
 			}
 			fnop := reflect.ValueOf(op)
-			left = fnop.Call([]reflect.Value{reflected(left), reflected(right)})[0].Interface()
+			left = fnop.Call([]reflect.Value{misc.Reflected(left), misc.Reflected(right)})[0].Interface()
 		}
 	})
 }
 
-func (s *streamImpl) ReduceNA(reducer Reducer) Stream {
+func (s *StreamImpl) ReduceNA(reducer api.Reducer) api.Stream {
 	return s.chain(func() (read interface{}, closed bool) {
 		left, closed := s.pull()
 		if closed {
@@ -44,27 +46,27 @@ func (s *streamImpl) ReduceNA(reducer Reducer) Stream {
 	})
 }
 
-func (s *streamImpl) Sum() Stream {
+func (s *StreamImpl) Sum() api.Stream {
 	return s.ReduceNA(&IntSumReducer{})
 }
 
-func (s *streamImpl) SumInt64() Stream {
+func (s *StreamImpl) SumInt64() api.Stream {
 	return s.ReduceNA(&Int64SumReducer{})
 }
 
-func (s *streamImpl) Map(op interface{}) Stream {
+func (s *StreamImpl) Map(op interface{}) api.Stream {
 	fnop := reflect.ValueOf(op)
 	return s.chain(func() (read interface{}, closed bool) {
 		value, closed := s.pull()
 		if closed {
 			return nil, true
 		}
-		return fnop.Call([]reflect.Value{reflected(value)})[0].Interface(), false
+		return fnop.Call([]reflect.Value{misc.Reflected(value)})[0].Interface(), false
 	})
 }
 
 // MapInt64 requires one allocation per element (2 for the generic Map)
-func (s *streamImpl) MapInt64(op func(int64) int64) Stream {
+func (s *StreamImpl) MapInt64(op func(int64) int64) api.Stream {
 	return s.chain(func() (read interface{}, closed bool) {
 		value, closed := s.pull()
 		if closed {
@@ -74,7 +76,7 @@ func (s *streamImpl) MapInt64(op func(int64) int64) Stream {
 	})
 }
 
-func (s *streamImpl) Filter(op interface{}) Stream {
+func (s *StreamImpl) Filter(op interface{}) api.Stream {
 	fnop := reflect.ValueOf(op)
 	return s.chain(func() (read interface{}, closed bool) {
 		var elem interface{}
@@ -82,7 +84,7 @@ func (s *streamImpl) Filter(op interface{}) Stream {
 		for !closed {
 			elem, closed = s.pull()
 			if !closed {
-				if !fnop.Call([]reflect.Value{reflected(elem)})[0].Bool() {
+				if !fnop.Call([]reflect.Value{misc.Reflected(elem)})[0].Bool() {
 					return elem, false
 				}
 			}
@@ -91,7 +93,7 @@ func (s *streamImpl) Filter(op interface{}) Stream {
 	})
 }
 
-func (s *streamImpl) FilterNA(op func(interface{}) bool) Stream {
+func (s *StreamImpl) FilterNA(op func(interface{}) bool) api.Stream {
 	return s.chain(func() (read interface{}, closed bool) {
 		closed = false
 		for !closed {
@@ -110,18 +112,18 @@ func (s *streamImpl) FilterNA(op func(interface{}) bool) Stream {
 // elements to the expected type i.e. a int64 will be converted into a string representation in base10, if this
 // conversion is disabled, or the coercion is not possible, it can be either drop (setting the parameter dropIfNotPossible)
 // or panic when dropping is disable.
-func (s *streamImpl) EnsureTypeEx(t reflect.Type, coerce bool, dropIfNotPossible bool) Stream {
+func (s *StreamImpl) EnsureTypeEx(t reflect.Type, coerce bool, dropIfNotPossible bool) api.Stream {
 	return nil
 }
 
 // Ensure the types trying to coerce and dropping elements that can not be converted
-func (s *streamImpl) EnsureType(t reflect.Type) Stream {
+func (s *StreamImpl) EnsureType(t reflect.Type) api.Stream {
 	return s.EnsureTypeEx(t, true, true)
 }
 
 // Modifies the Stream element in-place, avoids non-allocating operation. Given the root pointer can not be changed,
 // this can only be used with struct or containers i.e. maps, etc.
-func (s *streamImpl) ModifyNA(fn func(interface{})) Stream {
+func (s *StreamImpl) ModifyNA(fn func(interface{})) api.Stream {
 	return s.chain(func() (read interface{}, closed bool) {
 		read, closed = s.pull()
 		if !closed {

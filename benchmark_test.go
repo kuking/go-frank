@@ -2,6 +2,8 @@ package go_frank
 
 import (
 	"fmt"
+	"github.com/kuking/go-frank/api"
+	"github.com/kuking/go-frank/base"
 	"testing"
 )
 
@@ -10,7 +12,7 @@ func BenchmarkSumInt64(b *testing.B) {
 	size := 1000000
 	exp := int64(size * (size - 1) / 2)
 	arr := givenInt64Array(size)
-	s := ArrayStream(arr)
+	s := base.ArrayStream(arr)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -27,7 +29,7 @@ func BenchmarkSumInt(b *testing.B) {
 	size := 1000000
 	exp := size * (size - 1) / 2
 	arr := givenIntArray(size)
-	s := ArrayStream(arr)
+	s := base.ArrayStream(arr)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -43,7 +45,7 @@ func BenchmarkMap(b *testing.B) {
 	size := 1000000
 	exp := int64(size*(size-1)/2) + int64(size)
 	arr := givenInt64Array(size)
-	s := ArrayStream(arr)
+	s := base.ArrayStream(arr)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -60,7 +62,7 @@ func BenchmarkMapInt64(b *testing.B) {
 	size := 1000000
 	exp := int64(size*(size-1)/2) + int64(size)
 	arr := givenInt64Array(size)
-	s := ArrayStream(arr)
+	s := base.ArrayStream(arr)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -77,7 +79,7 @@ func BenchmarkReduce(b *testing.B) {
 	size := 1000000
 	exp := int64(size * (size - 1) / 2)
 	arr := givenInt64Array(size)
-	s := ArrayStream(arr)
+	s := base.ArrayStream(arr)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -95,11 +97,11 @@ func BenchmarkReduceNA(b *testing.B) {
 	size := 1000000
 	exp := int64(size * (size - 1) / 2)
 	arr := givenInt64Array(size)
-	s := ArrayStream(arr)
+	s := base.ArrayStream(arr)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var int64reducer Int64SumReducer
+		var int64reducer base.Int64SumReducer
 		s.Reset()
 		if res := s.ReduceNA(&int64reducer).First(); res.IsEmpty() || res.Get() != exp {
 			b.Fatal(res)
@@ -112,7 +114,7 @@ func BenchmarkReduceNA(b *testing.B) {
 func BenchmarkFilter(b *testing.B) {
 	size := 1000000
 	arr := givenInt64Array(size)
-	s := ArrayStream(arr)
+	s := base.ArrayStream(arr)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -129,7 +131,7 @@ func BenchmarkFilter(b *testing.B) {
 func BenchmarkFilterNA(b *testing.B) {
 	size := 1000000
 	arr := givenInt64Array(size)
-	s := ArrayStream(arr)
+	s := base.ArrayStream(arr)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -148,7 +150,7 @@ func BenchmarkModifyNA(b *testing.B) {
 	for i := 0; i < size; i++ {
 		arr[i] = map[string]int{"A": 1}
 	}
-	s := ArrayStream(arr)
+	s := base.ArrayStream(arr)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -193,4 +195,31 @@ func BenchmarkGeneratorCounter(b *testing.B) {
 		b.Fatal()
 	}
 	b.StopTimer()
+}
+
+func givenIntArray(count int) []interface{} {
+	elems := make([]interface{}, count)
+	for i := 0; i < len(elems); i++ {
+		elems[i] = i
+	}
+	return elems
+}
+
+func givenInt64Array(count int) []interface{} {
+	elems := make([]interface{}, count)
+	for i := 0; i < len(elems); i++ {
+		elems[i] = int64(i)
+	}
+	return elems
+}
+
+func givenInt64StreamGenerator(total int) api.Stream {
+	count := int64(0)
+	return base.StreamGenerator(func() api.Optional {
+		count++
+		if count <= int64(total) {
+			return api.OptionalOf(count)
+		}
+		return api.EmptyOptional()
+	})
 }

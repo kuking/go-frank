@@ -1,24 +1,37 @@
 package go_frank
 
-func (s *mmapStream) Consume(clientName string) Stream {
+import (
+	"github.com/kuking/go-frank/api"
+	"github.com/kuking/go-frank/base"
+	"github.com/kuking/go-frank/serialisation"
+)
+
+func OpenCreatePersistentStream(basePath string, partSize uint64, serialiser serialisation.StreamSerialiser) (ps api.PersistentStream, err error) {
+	ps, err = MmapStreamOpen(basePath, serialiser)
+	if err == nil {
+		return
+	} else {
+		ps, err = MmapStreamCreate(basePath, partSize, serialiser)
+		return
+	}
+}
+
+func (s *mmapStream) Consume(clientName string) api.Stream {
 	subId := s.SubscriberIdForName(clientName)
 	provider := &mmapStreamProviderForSubscriber{
 		subId:        subId,
-		waitApproach: UntilNoMoreData,
+		waitApproach: api.UntilNoMoreData,
 		mmapStream:   s,
 	}
 	pullFn := func() (read interface{}, closed bool) {
 		return s.pullBySubId(subId, provider.waitApproach)
 	}
-	return &streamImpl{
-		provider: provider,
-		pull:     pullFn,
-	}
+	return base.NewStreamImpl(provider, pullFn)
 }
 
 type mmapStreamProviderForSubscriber struct {
 	subId        int
-	waitApproach WaitApproach
+	waitApproach api.WaitApproach
 	mmapStream   *mmapStream
 }
 
@@ -56,6 +69,6 @@ func (ms *mmapStreamProviderForSubscriber) Peek(absPos uint64) interface{} {
 	return nil
 }
 
-func (ms *mmapStreamProviderForSubscriber) Wait(waitApproach WaitApproach) {
+func (ms *mmapStreamProviderForSubscriber) Wait(waitApproach api.WaitApproach) {
 	ms.waitApproach = waitApproach
 }

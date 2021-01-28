@@ -1,6 +1,7 @@
-package go_frank
+package base
 
 import (
+	"github.com/kuking/go-frank/api"
 	"runtime"
 	"testing"
 	"time"
@@ -18,7 +19,7 @@ func TestSimplest(t *testing.T) {
 }
 
 func TestSimple(t *testing.T) {
-	result := givenStringArrayStream().AsArray()
+	result := GivenStringArrayStream().AsArray()
 	if len(result) != 6 || result[2] != "are" {
 		t.Fatal()
 	}
@@ -26,12 +27,12 @@ func TestSimple(t *testing.T) {
 
 func TestGenerator(t *testing.T) {
 	count := 0
-	stream := StreamGenerator(func() Optional {
+	stream := StreamGenerator(func() api.Optional {
 		count++
 		if count <= 10*1024 {
-			return OptionalOf(count)
+			return api.OptionalOf(count)
 		}
-		return EmptyOptional()
+		return api.EmptyOptional()
 	})
 	runtime.Gosched() // to let the ring-buffer fill, so coverage
 	time.Sleep(1 * time.Millisecond)
@@ -55,18 +56,18 @@ func TestArrayStream(t *testing.T) {
 
 // -------------------------------------------------------------------------------------------------------------------
 
-func givenInt64StreamGenerator(total int) Stream {
+func GivenInt64StreamGenerator(total int) api.Stream {
 	count := int64(0)
-	return StreamGenerator(func() Optional {
+	return StreamGenerator(func() api.Optional {
 		count++
 		if count <= int64(total) {
-			return OptionalOf(count)
+			return api.OptionalOf(count)
 		}
-		return EmptyOptional()
+		return api.EmptyOptional()
 	})
 }
 
-func givenIntArray(count int) []interface{} {
+func GivenIntArray(count int) []interface{} {
 	elems := make([]interface{}, count)
 	for i := 0; i < len(elems); i++ {
 		elems[i] = i
@@ -74,7 +75,7 @@ func givenIntArray(count int) []interface{} {
 	return elems
 }
 
-func givenInt64Array(count int) []interface{} {
+func GivenInt64Array(count int) []interface{} {
 	elems := make([]interface{}, count)
 	for i := 0; i < len(elems); i++ {
 		elems[i] = int64(i)
@@ -82,14 +83,6 @@ func givenInt64Array(count int) []interface{} {
 	return elems
 }
 
-func givenStringArrayStream() Stream {
+func GivenStringArrayStream() api.Stream {
 	return ArrayStream([]interface{}{"Hello", "how", "are", "you", "doing", "?"})
-}
-
-func givenInt64ArrayStream(l int) Stream {
-	arr := make([]interface{}, l)
-	for i := 0; i < l; i++ {
-		arr[i] = int64(i)
-	}
-	return ArrayStream(arr)
 }

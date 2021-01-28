@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	frank "github.com/kuking/go-frank"
+	"github.com/kuking/go-frank/api"
 	"github.com/kuking/go-frank/serialisation"
 	"log"
 	"os"
@@ -27,7 +28,7 @@ func doArgsParsing() bool {
 	flag.UintVar(&eventSize, "evs", 100, "event-size in bytes (for pub_bench)")
 	flag.StringVar(&baseFile, "bs", "persistent-stream", "Base file path")
 	flag.StringVar(&clientName, "cn", "client-1", "Client name")
-	flag.Int64Var(&waitApproach, "wa", int64(frank.UntilNoMoreData), "Wait approach: -1 until closed, 0 until no more data, N ms wait.")
+	flag.Int64Var(&waitApproach, "wa", int64(api.UntilNoMoreData), "Wait approach: -1 until closed, 0 until no more data, N ms wait.")
 	flag.BoolVar(&beQuiet, "q", false, "Be quiet, better for performance stats")
 	flag.BoolVar(&doHelp, "h", false, "Show usage")
 	flag.Parse()
@@ -93,13 +94,13 @@ func main() {
 
 	if cmd == "sub" {
 		s := p.Consume(clientName)
-		s.Wait(frank.WaitApproach(waitApproach))
+		s.Wait(api.WaitApproach(waitApproach))
 		s.ForEach(func(elem []byte) {
 			fmt.Println(string(elem))
 		})
 	} else if cmd == "pub" {
 		s := p.Consume(clientName)
-		s.Wait(frank.WaitApproach(waitApproach))
+		s.Wait(api.WaitApproach(waitApproach))
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			s.Feed(scanner.Bytes())

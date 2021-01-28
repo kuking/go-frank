@@ -1,6 +1,9 @@
-package go_frank
+package base
 
-import "testing"
+import (
+	"github.com/kuking/go-frank/api"
+	"testing"
+)
 
 // missing tests
 // i.e. feeding data at the head of the stream, or the tail, or something in between, it should work.
@@ -8,7 +11,7 @@ import "testing"
 func TestCloseFeedWorksInChain(t *testing.T) {
 
 	for c := 0; c < 4; c++ {
-		s := make([]Stream, 4)
+		s := make([]api.Stream, 4)
 
 		s[0] = EmptyStream(1024)
 		s[1] = s[0].Skip(16)

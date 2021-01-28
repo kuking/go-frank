@@ -1,7 +1,9 @@
-package go_frank
+package base
+
+import "github.com/kuking/go-frank/api"
 
 // skips N elements in the stream, it can block
-func (s *streamImpl) Skip(n int) Stream {
+func (s *StreamImpl) Skip(n int) api.Stream {
 	pending := n
 	return s.chain(func() (read interface{}, closed bool) {
 		for pending > 0 {

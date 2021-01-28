@@ -1,4 +1,4 @@
-package go_frank
+package api
 
 import (
 	"errors"

@@ -1,6 +1,8 @@
-package go_frank
+package base
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestSkip(t *testing.T) {
 	if givenInt64StreamGenerator(1024).Skip(512).Count() != 512 {

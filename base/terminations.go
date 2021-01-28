@@ -1,6 +1,7 @@
-package go_frank
+package base
 
 import (
+	"github.com/kuking/go-frank/api"
 	"math"
 	"reflect"
 )
@@ -11,29 +12,29 @@ import (
 //
 // --------------------------------------------------------------------------------------------------------------------
 
-func (s *streamImpl) First() Optional {
+func (s *StreamImpl) First() api.Optional {
 	return s.Pull()
 }
 
-func (s *streamImpl) Last() Optional {
+func (s *StreamImpl) Last() api.Optional {
 	read, closed := s.pull()
 	if closed {
-		return EmptyOptional()
+		return api.EmptyOptional()
 	}
 	for {
 		lastRead := read
 		read, closed = s.pull()
 		if closed {
-			return OptionalOf(lastRead)
+			return api.OptionalOf(lastRead)
 		}
 	}
 }
 
-func (s *streamImpl) IsEmpty() bool {
+func (s *StreamImpl) IsEmpty() bool {
 	return s.First().IsEmpty()
 }
 
-func (s *streamImpl) Count() int {
+func (s *StreamImpl) Count() int {
 	c := s.CountUint64()
 	if c > math.MaxInt32 {
 		return -1
@@ -41,7 +42,7 @@ func (s *streamImpl) Count() int {
 	return int(c)
 }
 
-func (s *streamImpl) CountUint64() (c uint64) {
+func (s *StreamImpl) CountUint64() (c uint64) {
 	c = 0
 	closed := false
 	for !closed {
@@ -53,7 +54,7 @@ func (s *streamImpl) CountUint64() (c uint64) {
 	return
 }
 
-func (s *streamImpl) AsArray() (result []interface{}) {
+func (s *StreamImpl) AsArray() (result []interface{}) {
 	result = make([]interface{}, 0)
 	var read interface{}
 	closed := false
@@ -66,7 +67,7 @@ func (s *streamImpl) AsArray() (result []interface{}) {
 	return result
 }
 
-func (s *streamImpl) AllMatch(op interface{}) bool {
+func (s *StreamImpl) AllMatch(op interface{}) bool {
 	val, closed := s.pull()
 	for !closed {
 		if !reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(val)})[0].Bool() {
@@ -77,11 +78,11 @@ func (s *streamImpl) AllMatch(op interface{}) bool {
 	return true
 }
 
-func (s *streamImpl) NoneMatch(op interface{}) bool {
+func (s *StreamImpl) NoneMatch(op interface{}) bool {
 	return !s.AllMatch(op)
 }
 
-func (s *streamImpl) AtLeastOne(op interface{}) bool {
+func (s *StreamImpl) AtLeastOne(op interface{}) bool {
 	val, closed := s.pull()
 	for !closed {
 		if reflect.ValueOf(op).Call([]reflect.Value{reflect.ValueOf(val)})[0].Bool() {
@@ -92,7 +93,7 @@ func (s *streamImpl) AtLeastOne(op interface{}) bool {
 	return false
 }
 
-func (s *streamImpl) ForEach(op interface{}) {
+func (s *StreamImpl) ForEach(op interface{}) {
 	val, closed := s.pull()
 	if closed {
 		return

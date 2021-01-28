@@ -1,7 +1,8 @@
-package go_frank
+package base
 
 import (
 	"fmt"
+	"github.com/kuking/go-frank/api"
 	"testing"
 	"time"
 )
@@ -117,7 +118,7 @@ func TestReset(t *testing.T) {
 
 func TestWaitApproachInMemory(t *testing.T) {
 	s := EmptyStream(1024)
-	s.Wait(WaitingUpto10ms)
+	s.Wait(api.WaitingUpto10ms)
 	t0 := time.Now()
 	if s.Count() != 0 {
 		t.Fatal()
@@ -128,7 +129,7 @@ func TestWaitApproachInMemory(t *testing.T) {
 	}
 
 	s.Feed("1")
-	s.Wait(UntilNoMoreData)
+	s.Wait(api.UntilNoMoreData)
 	t0 = time.Now()
 	if s.Count() != 1 {
 		t.Fatal()

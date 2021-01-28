@@ -1,4 +1,4 @@
-package go_frank
+package base
 
 // Memory efficient reducer adding all the elements of the stream into a int64 (assuming elements are int64)
 // can process 175M int64/second/thread

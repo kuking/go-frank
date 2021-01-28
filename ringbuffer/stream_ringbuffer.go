@@ -1,6 +1,7 @@
-package go_frank
+package ringbuffer
 
 import (
+	"github.com/kuking/go-frank/api"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -12,17 +13,17 @@ type ringBufferProvider struct {
 	ringWrite    uint64
 	ringWAlloc   uint64
 	closedFlag   int32
-	WaitApproach WaitApproach
+	WaitApproach api.WaitApproach
 }
 
-func newRingBufferProvider(capacity int) *ringBufferProvider {
+func NewRingBufferProvider(capacity int) *ringBufferProvider {
 	return &ringBufferProvider{
 		ringBuffer:   make([]interface{}, capacity),
 		ringRead:     0,
 		ringWrite:    0,
 		ringWAlloc:   0,
 		closedFlag:   0,
-		WaitApproach: UntilClosed,
+		WaitApproach: api.UntilClosed,
 	}
 }
 
@@ -69,7 +70,7 @@ func (r *ringBufferProvider) Pull() (read interface{}, closed bool) {
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond)
 		totalNsWait += int64(i)
-		if r.WaitApproach == UntilClosed {
+		if r.WaitApproach == api.UntilClosed {
 			// just continue
 		} else if !otherThreadWriting && totalNsWait > int64(r.WaitApproach) {
 			return nil, true
@@ -127,6 +128,6 @@ func (r *ringBufferProvider) Peek(absPos uint64) interface{} {
 	return r.ringBuffer[absPos%rbs]
 }
 
-func (r *ringBufferProvider) Wait(waitApproach WaitApproach) {
+func (r *ringBufferProvider) Wait(waitApproach api.WaitApproach) {
 	r.WaitApproach = waitApproach
 }

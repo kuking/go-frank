@@ -1,6 +1,8 @@
-package go_frank
+package base
 
-type streamProvider interface {
+import "github.com/kuking/go-frank/api"
+
+type StreamProvider interface {
 	Feed(elem interface{})
 	Close()
 	IsClosed() bool
@@ -9,5 +11,5 @@ type streamProvider interface {
 	CurrAbsPos() uint64
 	PeekLimit() uint64
 	Peek(absPos uint64) interface{}
-	Wait(approach WaitApproach)
+	Wait(approach api.WaitApproach)
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/edsrzf/mmap-go"
+	"github.com/kuking/go-frank/api"
 	"github.com/kuking/go-frank/serialisation"
 	"log"
 	"math"
@@ -153,7 +154,7 @@ type mmapStream struct {
 	subIdLock      sync.Mutex                      // lock used to allocate unique subId
 }
 
-func mmapStreamCreate(baseFilename string, partSize uint64, serialiser serialisation.StreamSerialiser) (s *mmapStream, err error) {
+func MmapStreamCreate(baseFilename string, partSize uint64, serialiser serialisation.StreamSerialiser) (s *mmapStream, err error) {
 	if partSize < 64*1024 {
 		return nil, errors.New("part file should be at least 64k")
 	}
@@ -183,10 +184,10 @@ func mmapStreamCreate(baseFilename string, partSize uint64, serialiser serialisa
 	if err = mm.Unmap(); err != nil {
 		return nil, err
 	}
-	return mmapStreamOpen(baseFilename, serialiser)
+	return MmapStreamOpen(baseFilename, serialiser)
 }
 
-func mmapStreamOpen(baseFilename string, serialiser serialisation.StreamSerialiser) (s *mmapStream, err error) {
+func MmapStreamOpen(baseFilename string, serialiser serialisation.StreamSerialiser) (s *mmapStream, err error) {
 	s = &mmapStream{
 		serialiser:   serialiser,
 		baseFilename: baseFilename,
@@ -305,7 +306,7 @@ func (s *mmapStream) Feed(elem interface{}) {
 	}
 }
 
-func (s *mmapStream) pullBySubId(subId int, waitApproach WaitApproach) (elem interface{}, closed bool) {
+func (s *mmapStream) pullBySubId(subId int, waitApproach api.WaitApproach) (elem interface{}, closed bool) {
 	var totalNsWait int64
 	for i := 0; ; i++ {
 		ofsRead := atomic.LoadUint64(&s.descriptor.SubRPos[subId])
@@ -333,7 +334,7 @@ func (s *mmapStream) pullBySubId(subId int, waitApproach WaitApproach) (elem int
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond)
 		totalNsWait += int64(i)
-		if waitApproach == UntilClosed {
+		if waitApproach == api.UntilClosed {
 			// just continue
 		} else if totalNsWait > int64(waitApproach) {
 			return nil, true

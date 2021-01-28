@@ -1,4 +1,6 @@
-package go_frank
+package base
+
+import "github.com/kuking/go-frank/api"
 
 // uri formats
 //
@@ -33,10 +35,10 @@ package go_frank
 // offset, subscriberId are supported.
 //
 
-func Subscribe(uri string) Stream {
+func Subscribe(uri string) api.Stream {
 	return nil
 }
 
-func (s *streamImpl) Publish(uri string) { //Publisher struct
+func (s *StreamImpl) Publish(uri string) { //Publisher struct
 
 }

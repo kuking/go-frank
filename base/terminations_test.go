@@ -1,6 +1,8 @@
-package go_frank
+package base
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestFirstLast(t *testing.T) {
 	result := givenStringArrayStream().First()

@@ -2,6 +2,7 @@ package go_frank
 
 import (
 	"fmt"
+	"github.com/kuking/go-frank/api"
 	"github.com/kuking/go-frank/serialisation"
 	"io/ioutil"
 	"testing"
@@ -79,7 +80,7 @@ func TestWaitApproachPersistent(t *testing.T) {
 	p, _ := OpenCreatePersistentStream(base, 64*1024, serialisation.ByteArraySerialiser{})
 
 	s := p.Consume("lala")
-	s.Wait(WaitingUpto10ms)
+	s.Wait(api.WaitingUpto10ms)
 	t0 := time.Now()
 	if s.Count() != 0 {
 		t.Fatal()
@@ -90,7 +91,7 @@ func TestWaitApproachPersistent(t *testing.T) {
 	}
 
 	s.Feed("1")
-	s.Wait(UntilNoMoreData)
+	s.Wait(api.UntilNoMoreData)
 	t0 = time.Now()
 	if s.Count() != 1 {
 		t.Fatal()
