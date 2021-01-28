@@ -1,14 +1,16 @@
-package base
+package extra_tests
 
 import (
 	"fmt"
+	frank "github.com/kuking/go-frank"
 	"github.com/kuking/go-frank/api"
+	"github.com/kuking/go-frank/base"
 	"testing"
 	"time"
 )
 
 func TestPositioningAtStart(t *testing.T) {
-	s := EmptyStream(1024)
+	s := base.EmptyStream(1024)
 	if s.CurrAbsPos() != uint64(0) {
 		t.Fatal()
 	}
@@ -21,7 +23,7 @@ func TestPositioningAtStart(t *testing.T) {
 }
 
 func TestPositioningSimple(t *testing.T) {
-	s := EmptyStream(1024)
+	s := base.EmptyStream(1024)
 	for i := 0; i < 512; i++ {
 		s.Feed(i)
 	}
@@ -43,7 +45,7 @@ func TestPositioningSimple(t *testing.T) {
 
 func TestPositioningOnNonHeads(t *testing.T) {
 	// positioning operations on non-head Stream should fail
-	s := EmptyStream(1024)
+	s := base.EmptyStream(1024)
 	for i := 0; i < 512; i++ {
 		s.Feed(i)
 	}
@@ -60,7 +62,7 @@ func TestPositioningOnNonHeads(t *testing.T) {
 }
 
 func TestPositionOnRollOverStream(t *testing.T) {
-	s := EmptyStream(1024)
+	s := base.EmptyStream(1024)
 	for i := 0; i < 1024+1024+512; i++ {
 		s.Feed(i)
 		if i >= 512 {
@@ -117,7 +119,7 @@ func TestReset(t *testing.T) {
 }
 
 func TestWaitApproachInMemory(t *testing.T) {
-	s := EmptyStream(1024)
+	s := base.EmptyStream(1024)
 	s.Wait(api.WaitingUpto10ms)
 	t0 := time.Now()
 	if s.Count() != 0 {
@@ -138,4 +140,12 @@ func TestWaitApproachInMemory(t *testing.T) {
 	if dur.Nanoseconds() > 1_000_000 {
 		t.Fatal(fmt.Sprintf("it should have been lots faster, took: %v", dur))
 	}
+}
+
+func givenInt64ArrayStream(l int) api.Stream {
+	arr := make([]interface{}, l)
+	for i := 0; i < l; i++ {
+		arr[i] = int64(i)
+	}
+	return frank.ArrayStream(arr)
 }

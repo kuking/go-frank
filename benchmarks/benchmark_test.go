@@ -181,8 +181,8 @@ func BenchmarkGeneratorFilterNA(b *testing.B) {
 	s := extras.Int64Generator(0, int64(total))
 	b.ReportAllocs()
 	b.ResetTimer()
-	if res := s.FilterNA(func(i interface{}) bool { return i.(int64)%2 == 0 }).Count(); res != (total+1)/2 {
-		b.Fatal(fmt.Sprintf("res %v != %v exp ; total=%v", res, (total+1)/2, total))
+	if res := s.FilterNA(func(i interface{}) bool { return i.(int64)%2 == 0 }).Count(); res != total/2 {
+		b.Fatal(fmt.Sprintf("res %v != %v exp ; total=%v", res, total/2, total))
 	}
 	b.StopTimer()
 }

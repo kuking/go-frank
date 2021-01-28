@@ -56,33 +56,6 @@ func TestArrayStream(t *testing.T) {
 
 // -------------------------------------------------------------------------------------------------------------------
 
-func GivenInt64StreamGenerator(total int) api.Stream {
-	count := int64(0)
-	return StreamGenerator(func() api.Optional {
-		count++
-		if count <= int64(total) {
-			return api.OptionalOf(count)
-		}
-		return api.EmptyOptional()
-	})
-}
-
-func GivenIntArray(count int) []interface{} {
-	elems := make([]interface{}, count)
-	for i := 0; i < len(elems); i++ {
-		elems[i] = i
-	}
-	return elems
-}
-
-func GivenInt64Array(count int) []interface{} {
-	elems := make([]interface{}, count)
-	for i := 0; i < len(elems); i++ {
-		elems[i] = int64(i)
-	}
-	return elems
-}
-
 func GivenStringArrayStream() api.Stream {
 	return ArrayStream([]interface{}{"Hello", "how", "are", "you", "doing", "?"})
 }
