@@ -1,4 +1,4 @@
-package go_frank
+package serialisation
 
 import (
 	"bytes"
@@ -59,7 +59,7 @@ func asByteArray(elem interface{}) []byte {
 	}
 }
 
-func asString(elem interface{}) string {
+func AsString(elem interface{}) string {
 	switch elem.(type) {
 	case string:
 		return elem.(string)

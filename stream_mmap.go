@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/edsrzf/mmap-go"
+	"github.com/kuking/go-frank/serialisation"
 	"log"
 	"math"
 	"math/rand"
@@ -60,7 +61,7 @@ type mmapPartFileDescriptor struct {
 
 type mmapPart struct {
 	filename   string
-	serialiser StreamSerialiser
+	serialiser serialisation.StreamSerialiser
 	partSize   uint64
 	mmap       mmap.MMap
 	descriptor *mmapPartFileDescriptor
@@ -87,7 +88,7 @@ func createMmapPart(baseFilename string, uniqId, partNo, partSize uint64) (err e
 	return mm.Unmap()
 }
 
-func openMmapPart(baseFilename string, uniqId, partNo, partSize uint64, serialiser StreamSerialiser) (mp *mmapPart, err error) {
+func openMmapPart(baseFilename string, uniqId, partNo, partSize uint64, serialiser serialisation.StreamSerialiser) (mp *mmapPart, err error) {
 	mp = &mmapPart{
 		filename:   baseFilename + fmt.Sprintf(".%05x", partNo),
 		partSize:   partSize,
@@ -142,7 +143,7 @@ func (mp *mmapPart) Close() error {
 }
 
 type mmapStream struct {
-	serialiser     StreamSerialiser
+	serialiser     serialisation.StreamSerialiser
 	baseFilename   string
 	descriptorMmap mmap.MMap
 	descriptor     *mmapStreamDescriptor           // pointing to the descriptor'Mmap
@@ -152,7 +153,7 @@ type mmapStream struct {
 	subIdLock      sync.Mutex                      // lock used to allocate unique subId
 }
 
-func mmapStreamCreate(baseFilename string, partSize uint64, serialiser StreamSerialiser) (s *mmapStream, err error) {
+func mmapStreamCreate(baseFilename string, partSize uint64, serialiser serialisation.StreamSerialiser) (s *mmapStream, err error) {
 	if partSize < 64*1024 {
 		return nil, errors.New("part file should be at least 64k")
 	}
@@ -185,7 +186,7 @@ func mmapStreamCreate(baseFilename string, partSize uint64, serialiser StreamSer
 	return mmapStreamOpen(baseFilename, serialiser)
 }
 
-func mmapStreamOpen(baseFilename string, serialiser StreamSerialiser) (s *mmapStream, err error) {
+func mmapStreamOpen(baseFilename string, serialiser serialisation.StreamSerialiser) (s *mmapStream, err error) {
 	s = &mmapStream{
 		serialiser:   serialiser,
 		baseFilename: baseFilename,

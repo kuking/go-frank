@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	frank "github.com/kuking/go-frank"
+	"github.com/kuking/go-frank/serialisation"
 	"log"
 	"os"
 	"time"
@@ -85,7 +86,7 @@ func main() {
 		waitApproach *= 1_000_000
 	}
 
-	p, err := frank.OpenCreatePersistentStream(baseFile, partSize*1024*1024, frank.ByteArraySerialiser{})
+	p, err := frank.OpenCreatePersistentStream(baseFile, partSize*1024*1024, serialisation.ByteArraySerialiser{})
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package go_frank
 
 import (
+	"github.com/kuking/go-frank/serialisation"
 	"reflect"
 )
 
@@ -157,7 +158,7 @@ func streamGeneratorFeeder(s Stream, generator func() Optional) {
 	s.Close()
 }
 
-func OpenCreatePersistentStream(basePath string, partSize uint64, serialiser StreamSerialiser) (ps PersistentStream, err error) {
+func OpenCreatePersistentStream(basePath string, partSize uint64, serialiser serialisation.StreamSerialiser) (ps PersistentStream, err error) {
 	ps, err = mmapStreamOpen(basePath, serialiser)
 	if err == nil {
 		return

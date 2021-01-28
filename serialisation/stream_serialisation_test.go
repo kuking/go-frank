@@ -1,4 +1,4 @@
-package go_frank
+package serialisation
 
 import (
 	"encoding/gob"
@@ -82,7 +82,7 @@ func TestByteArraySerialiser_Strings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if "lala" != asString(recovered) {
+	if "lala" != AsString(recovered) {
 		t.Fatal(fmt.Sprintf("lala != %v", recovered))
 	}
 }

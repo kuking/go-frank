@@ -2,6 +2,7 @@ package go_frank
 
 import (
 	"fmt"
+	"github.com/kuking/go-frank/serialisation"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -12,11 +13,11 @@ func TestOpenPersistentStream_SimpleConsume(t *testing.T) {
 	base := prefix + "/a-stream"
 	defer cleanup(prefix)
 
-	ps1, err := OpenCreatePersistentStream(base, 64*1024, ByteArraySerialiser{})
+	ps1, err := OpenCreatePersistentStream(base, 64*1024, serialisation.ByteArraySerialiser{})
 	if err != nil {
 		t.Fatal()
 	}
-	ps2, err := OpenCreatePersistentStream(base, 64*1024, ByteArraySerialiser{})
+	ps2, err := OpenCreatePersistentStream(base, 64*1024, serialisation.ByteArraySerialiser{})
 	if err != nil {
 		t.Fatal()
 	}
@@ -25,7 +26,7 @@ func TestOpenPersistentStream_SimpleConsume(t *testing.T) {
 	ps1.Feed("lala")
 
 	s := ps2.Consume("client-1")
-	if asString(s.Pull().Get()) != "hello" || asString(s.Pull().Get()) != "lala" {
+	if serialisation.AsString(s.Pull().Get()) != "hello" || serialisation.AsString(s.Pull().Get()) != "lala" {
 		t.Fatal()
 	}
 }
@@ -35,11 +36,11 @@ func TestOpenCreatePersistentStream_MultiConsumerMultiProducer(t *testing.T) {
 	base := prefix + "/a-stream"
 	defer cleanup(prefix)
 
-	ps1, err := OpenCreatePersistentStream(base, 64*1024, ByteArraySerialiser{})
+	ps1, err := OpenCreatePersistentStream(base, 64*1024, serialisation.ByteArraySerialiser{})
 	if err != nil {
 		t.Fatal()
 	}
-	ps2, err := OpenCreatePersistentStream(base, 64*1024, ByteArraySerialiser{})
+	ps2, err := OpenCreatePersistentStream(base, 64*1024, serialisation.ByteArraySerialiser{})
 	if err != nil {
 		t.Fatal()
 	}
@@ -75,7 +76,7 @@ func TestWaitApproachPersistent(t *testing.T) {
 	prefix, _ := ioutil.TempDir("", "MMAP-")
 	base := prefix + "/a-stream"
 	defer cleanup(prefix)
-	p, _ := OpenCreatePersistentStream(base, 64*1024, ByteArraySerialiser{})
+	p, _ := OpenCreatePersistentStream(base, 64*1024, serialisation.ByteArraySerialiser{})
 
 	s := p.Consume("lala")
 	s.Wait(WaitingUpto10ms)
@@ -104,7 +105,7 @@ func TestPersistentWithZeroLengthElementsWorks(t *testing.T) {
 	prefix, _ := ioutil.TempDir("", "MMAP-")
 	base := prefix + "/a-stream"
 	defer cleanup(prefix)
-	p, _ := OpenCreatePersistentStream(base, 64*1024, ByteArraySerialiser{})
+	p, _ := OpenCreatePersistentStream(base, 64*1024, serialisation.ByteArraySerialiser{})
 
 	s := p.Consume("lala")
 	s.Feed([]byte{})
