@@ -60,6 +60,7 @@ func (s *StreamImpl) Peek(absPos uint64) interface{} {
 	return s.provider.Peek(absPos)
 }
 
-func (s *StreamImpl) Wait(waitApproach api.WaitApproach) {
+func (s *StreamImpl) Wait(waitApproach api.WaitApproach) api.Stream {
 	s.provider.Wait(waitApproach)
+	return s
 }

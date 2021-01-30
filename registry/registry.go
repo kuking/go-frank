@@ -10,8 +10,8 @@ import (
 )
 
 type Registry interface {
-	Register(name string, stream interface{}) error
-	Unregister(name string)
+	Register(uri string, stream interface{}) error
+	Unregister(uri string)
 	Obtain(uri string) (api.Stream, error)
 	List() []string
 }
@@ -28,21 +28,21 @@ func NewInMemoryRegistry() Registry {
 	}
 }
 
-func (i *InMemoryRegistry) Register(name string, stream interface{}) error {
+func (i *InMemoryRegistry) Register(uri string, stream interface{}) error {
 	i.lock.Lock()
 	defer i.lock.Unlock()
-
-	if i.registry[name] != nil {
-		return errors.New(fmt.Sprintf("registry already has a stream with name: %v", name))
+	// parse uri here
+	if i.registry[uri] != nil {
+		return errors.New(fmt.Sprintf("registry already has a stream with name: %v", uri))
 	}
-	i.registry[name] = stream
+	i.registry[uri] = stream
 	return nil
 }
 
-func (i *InMemoryRegistry) Unregister(name string) {
+func (i *InMemoryRegistry) Unregister(uri string) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
-	delete(i.registry, name)
+	delete(i.registry, uri)
 }
 
 func (i *InMemoryRegistry) Obtain(uri string) (api.Stream, error) {

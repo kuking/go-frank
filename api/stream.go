@@ -10,7 +10,7 @@ type Stream interface {
 	Feed(elem interface{})
 	Close()
 	IsClosed() bool
-	Wait(waitApproach WaitApproach)
+	Wait(waitApproach WaitApproach) Stream
 
 	// Positioning operations
 	Reset() uint64
@@ -42,8 +42,8 @@ type Stream interface {
 	Sum() Stream
 	SumInt64() Stream
 
-	EnsureTypeEx(t reflect.Type, coerce bool, dropIfNotPossible bool) Stream
-	EnsureType(t reflect.Type) Stream
+	EnsureTypeEx(t reflect.Kind, coerce bool, dropIfNotPossible bool) Stream
+	EnsureType(t reflect.Kind) Stream
 
 	JsonToMap() Stream
 	MapToJson() Stream
@@ -67,7 +67,7 @@ type Stream interface {
 	//Distinct() []interface{}
 	//EndsWith()
 
-	Publish(uri string)
+	Publish(uri string) error
 }
 
 // multi-consumer, multi-producer persistent Stream
@@ -78,6 +78,7 @@ type PersistentStream interface {
 	Close()
 	IsClosed() bool
 	CloseFile() error
+	Delete() error
 	//PruneUntil(absPos uint64)
 
 	// stats

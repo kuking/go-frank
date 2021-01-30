@@ -112,13 +112,25 @@ func (s *StreamImpl) FilterNA(op func(interface{}) bool) api.Stream {
 // elements to the expected type i.e. a int64 will be converted into a string representation in base10, if this
 // conversion is disabled, or the coercion is not possible, it can be either drop (setting the parameter dropIfNotPossible)
 // or panic when dropping is disable.
-func (s *StreamImpl) EnsureTypeEx(t reflect.Type, coerce bool, dropIfNotPossible bool) api.Stream {
-	return nil
+func (s *StreamImpl) EnsureTypeEx(kind reflect.Kind, coerce bool, dropIfNotPossible bool) api.Stream {
+	return s.chain(func() (read interface{}, closed bool) {
+		closed = false
+		for !closed {
+			read, closed = s.pull()
+			if !closed {
+				if reflect.TypeOf(read).Kind() == kind {
+					return
+				}
+				//TODO: coerce
+			}
+		}
+		return
+	})
 }
 
 // Ensure the types trying to coerce and dropping elements that can not be converted
-func (s *StreamImpl) EnsureType(t reflect.Type) api.Stream {
-	return s.EnsureTypeEx(t, true, true)
+func (s *StreamImpl) EnsureType(kind reflect.Kind) api.Stream {
+	return s.EnsureTypeEx(kind, true, true)
 }
 
 // Modifies the Stream element in-place, avoids non-allocating operation. Given the root pointer can not be changed,

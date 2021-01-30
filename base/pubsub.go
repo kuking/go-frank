@@ -44,6 +44,12 @@ func Subscribe(uri string) (api.Stream, error) {
 	return LocalRegistry.Obtain(uri)
 }
 
-func (s *StreamImpl) Publish(name string) {
-	LocalRegistry.Register(name, s)
+func (s *StreamImpl) Publish(name string) error {
+	out, err := LocalRegistry.Obtain(name)
+	if err != nil {
+		return err
+	}
+	s.Wait(api.UntilClosed)
+	go s.ForEach(func(elem interface{}) { out.Feed(elem) })
+	return nil
 }

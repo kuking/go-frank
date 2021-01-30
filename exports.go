@@ -34,7 +34,12 @@ func Subscribe(uri string) (api.Stream, error) {
 func SubscribeNE(uri string) api.Stream {
 	s, err := base.Subscribe(uri)
 	if err != nil {
-		return EmptyStream(0)
+		s = EmptyStream(0)
+		s.Close()
 	}
 	return s
+}
+
+func Register(uri string, stream interface{}) error {
+	return base.LocalRegistry.Register(uri, stream)
 }
