@@ -11,6 +11,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -204,10 +205,27 @@ func MmapStreamOpen(baseFilename string, serialiser serialisation.StreamSerialis
 func (s *mmapStream) CloseFile() error {
 	for _, part := range s.subPart {
 		if part != nil {
-			part.Close()
+			_ = part.Close()
 		}
 	}
+	if s.writerPart != nil {
+		_ = s.writerPart.Close()
+	}
 	return s.descriptorMmap.Unmap()
+}
+
+func (s *mmapStream) Delete() error {
+	_ = s.CloseFile()
+	files, err := filepath.Glob(s.baseFilename + ".?????")
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		if err := os.Remove(file); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *mmapStream) resolvePart(subId int, partNo uint64) *mmapPart {
