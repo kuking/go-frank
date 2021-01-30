@@ -32,18 +32,31 @@ func main() {
 		Wait(api.UntilClosed). // persistent streams won't consume until closed by default as they are long-lived streams
 		PublishClose("output")
 
-	// feeds 100 numbers (from 0 to 99) into the input, and closes the input stream.
-	_ = extras.Int64Generator(0, 100).PublishClose("input")
+	// feeds 25 numbers into the input, and closes the input stream.
+	_ = extras.Int64Generator(0, 35).PublishClose("input")
 
 	// Finally, the in memory output stream has some output
 	fmt.Print("Inmemory stream name 'output': ")
 	frank.SubscribeNE("output").ForEach(func(i int64) { fmt.Print(i, " ") })
 	fmt.Println()
 
-	// and the persistent one, by subscriben with client nae 'one' has some numbers too
+	// and the persistent one, by subscribing with client name 'one' has some numbers too
 	fmt.Print("Persistent stream client 'one': ")
 	frank.SubscribeNE("persistent?clientName=one").ForEach(func(i int64) { fmt.Print(i, " ") })
 	fmt.Println()
+
+	// another client can replay the stream, i.e. client 'two'
+	fmt.Print("Persistent stream client 'two': ")
+	frank.SubscribeNE("persistent?clientName=two").ForEach(func(i int64) { fmt.Print(i, " ") })
+	fmt.Println()
+
+	// and the persistent one, by subscribing with client name 'one' has some numbers too
+	fmt.Print("Resetting persistent stream client 'one':  ")
+	frank.SubscribeNE("persistent?clientName=one").Reset()
+	frank.SubscribeNE("persistent?clientName=one").ForEach(func(i int64) { fmt.Print(i, " ") })
+	fmt.Println()
+
+	// another client can replay
 
 	fmt.Println("Closing")
 	p.Close()
