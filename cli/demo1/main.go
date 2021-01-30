@@ -20,31 +20,32 @@ func main() {
 	p, _ := frank.PersistentStream("persistent-stream", 65*1024*1024, serialisation.Int64Serialiser{})
 	_ = frank.Register("persistent", p)
 
-	// virtual stream 1: consumes from 'input' stream (memory) transforms it, and publishes it into the persistent one
+	// virtual stream 1: consumes from 'input' stream (memory), until it is closed, calculates the power of the number,
+	// and publishes the output into the persistent stream (using client name 'calculator')
 	_ = frank.SubscribeNE("input").
 		Wait(api.UntilClosed).
 		EnsureType(reflect.Int64).
 		Map(func(i int64) int64 { return i * i }).
 		Publish("persistent?clientName=calculator")
 
-	// mini-virtual stream 2: subscribes to the persistent stream with client name 'output' and sends its output to the
-	// memory stream 'output'
+	// mini-virtual stream 2: subscribes to the persistent stream with client name 'output' and sends the stream
+	// traffic to the in-memory stream 'output', you can have multiple consumers so this can be done multiple times
 	_ = frank.SubscribeNE("persistent?clientName=output").Wait(api.UntilClosed).Publish("output")
 
-	// feeds 100 numbers into the input
+	// feeds 100 numbers (from 0 to 99) into the input, and closes the input stream.
 	_ = extras.Int64Generator(0, 100).Publish("input")
 
-	// then the persistent output has to have 1000 powers
-	fmt.Print("Persistent stream client 'one': ")
-	frank.SubscribeNE("persistent?clientName=one").Wait(api.WaitingUpto1s).ForEach(func(i int64) { fmt.Print(i, " ") })
-	fmt.Println()
-	//p.Close()
-
+	// Finally, the in memory output stream has some output
 	fmt.Print("Inmemory stream name 'output': ")
 	frank.SubscribeNE("output").Wait(api.WaitingUpto1s).ForEach(func(i int64) { fmt.Print(i, " ") })
 	fmt.Println()
-	fmt.Println("Closing")
 
+	// and the persistent one, by subscriben with client nae 'one' has some numbers too
+	fmt.Print("Persistent stream client 'one': ")
+	frank.SubscribeNE("persistent?clientName=one").Wait(api.WaitingUpto1s).ForEach(func(i int64) { fmt.Print(i, " ") })
+	fmt.Println()
+
+	fmt.Println("Closing")
 	p.Close()
 	time.Sleep(time.Millisecond * 250) // gives time for consumes to close before the persistent stream dissapears
 
