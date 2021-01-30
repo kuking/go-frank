@@ -7,7 +7,6 @@ import (
 	"github.com/kuking/go-frank/extras"
 	"github.com/kuking/go-frank/serialisation"
 	"reflect"
-	"time"
 )
 
 func main() {
@@ -23,31 +22,32 @@ func main() {
 	// virtual stream 1: consumes from 'input' stream (memory), until it is closed, calculates the power of the number,
 	// and publishes the output into the persistent stream (using client name 'calculator')
 	_ = frank.SubscribeNE("input").
-		Wait(api.UntilClosed).
 		EnsureType(reflect.Int64).
 		Map(func(i int64) int64 { return i * i }).
-		Publish("persistent?clientName=calculator")
+		PublishClose("persistent?clientName=calculator")
 
 	// mini-virtual stream 2: subscribes to the persistent stream with client name 'output' and sends the stream
 	// traffic to the in-memory stream 'output', you can have multiple consumers so this can be done multiple times
-	_ = frank.SubscribeNE("persistent?clientName=output").Wait(api.UntilClosed).Publish("output")
+	_ = frank.SubscribeNE("persistent?clientName=output").
+		Wait(api.UntilClosed). // persistent streams won't consume until closed by default as they are long-lived streams
+		PublishClose("output")
 
 	// feeds 100 numbers (from 0 to 99) into the input, and closes the input stream.
-	_ = extras.Int64Generator(0, 100).Publish("input")
+	_ = extras.Int64Generator(0, 100).PublishClose("input")
 
 	// Finally, the in memory output stream has some output
 	fmt.Print("Inmemory stream name 'output': ")
-	frank.SubscribeNE("output").Wait(api.WaitingUpto1s).ForEach(func(i int64) { fmt.Print(i, " ") })
+	frank.SubscribeNE("output").ForEach(func(i int64) { fmt.Print(i, " ") })
 	fmt.Println()
 
 	// and the persistent one, by subscriben with client nae 'one' has some numbers too
 	fmt.Print("Persistent stream client 'one': ")
-	frank.SubscribeNE("persistent?clientName=one").Wait(api.WaitingUpto1s).ForEach(func(i int64) { fmt.Print(i, " ") })
+	frank.SubscribeNE("persistent?clientName=one").ForEach(func(i int64) { fmt.Print(i, " ") })
 	fmt.Println()
 
 	fmt.Println("Closing")
 	p.Close()
-	time.Sleep(time.Millisecond * 250) // gives time for consumes to close before the persistent stream dissapears
+	//time.Sleep(time.Millisecond * 250) // gives time for consumes to close before the persistent stream dissapears
 
 	// cleanup
 	_ = p.Delete()

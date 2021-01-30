@@ -68,6 +68,7 @@ type Stream interface {
 	//EndsWith()
 
 	Publish(uri string) error
+	PublishClose(uri string) error
 }
 
 // multi-consumer, multi-producer persistent Stream

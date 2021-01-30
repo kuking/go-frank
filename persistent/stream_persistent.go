@@ -29,6 +29,7 @@ func (s *mmapStream) Consume(clientName string) api.Stream {
 	return base.NewStreamImpl(provider, pullFn)
 }
 
+//FIXME
 func (s *mmapStream) Publish(uri string) {
 	base.LocalRegistry.Register(uri, s)
 }
