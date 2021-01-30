@@ -44,12 +44,13 @@ func Subscribe(uri string) (api.Stream, error) {
 	return LocalRegistry.Obtain(uri)
 }
 
-func (s *StreamImpl) Publish(name string) error {
-	out, err := LocalRegistry.Obtain(name)
+// Consumes the contents of this Stream and publishes it into the provided URI Steam. Consumption will follow the
+// Stream' Wait approach
+func (s *StreamImpl) Publish(uri string) error {
+	out, err := LocalRegistry.Obtain(uri)
 	if err != nil {
 		return err
 	}
-	s.Wait(api.UntilClosed)
 	go s.ForEach(func(elem interface{}) { out.Feed(elem) })
 	return nil
 }
