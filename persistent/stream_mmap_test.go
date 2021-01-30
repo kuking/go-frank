@@ -79,6 +79,14 @@ func TestMmapStreamSubscriberForID(t *testing.T) {
 		}
 	}
 
+	if s.SubscriberIdForName("123") != s.SubscriberIdForName("123") {
+		t.Fatal()
+	}
+
+	if s.SubscriberIdForName("234") == s.SubscriberIdForName("345") {
+		t.Fatal()
+	}
+
 	if s.SubscriberIdForName("HELLO") != s.SubscriberIdForName("HELLO") {
 		t.Fatal("for the same named-subscriber, the subId should be the same")
 	}

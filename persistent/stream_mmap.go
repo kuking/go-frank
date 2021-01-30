@@ -110,7 +110,7 @@ func openMmapPart(baseFilename string, uniqId, partNo, partSize uint64, serialis
 func (mp *mmapPart) WriteAt(absOfs uint64, elem interface{}, elemLength uint64) {
 	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
 	binary.LittleEndian.PutUint64(mp.mmap[localOfs:], elemLength)
-	if err := mp.serialiser.Encode(elem, mp.mmap[localOfs+entryHeaderSize:]); err != nil {
+	if err := mp.serialiser.Encode(elem, mp.mmap[localOfs+entryHeaderSize:localOfs+entryHeaderSize+int(elemLength)]); err != nil {
 		panic(fmt.Sprintf("could not write in part, err: %v", err))
 	}
 }
@@ -374,7 +374,7 @@ func (s *mmapStream) SubscriberIdForName(namedSubscriber string) int {
 	// already subscribed? reuse
 	for i, subId := range s.descriptor.SubId {
 		if subId == subIdForName {
-			s.descriptor.SubTime[i] = time.Now().Unix()
+			s.descriptor.SubTime[i] = time.Now().UnixNano()
 			return i
 		}
 	}
@@ -383,13 +383,13 @@ func (s *mmapStream) SubscriberIdForName(namedSubscriber string) int {
 	var possibleSubId int
 	posibleSubTime := int64(math.MaxInt64)
 	for i := 0; i < len(s.descriptor.SubId); i++ {
-		if posibleSubTime < s.descriptor.SubTime[i] {
+		if posibleSubTime > s.descriptor.SubTime[i] {
 			posibleSubTime = s.descriptor.SubTime[i]
 			possibleSubId = i
 		}
 	}
 	// picks the older subscriber slot
-	s.descriptor.SubTime[possibleSubId] = time.Now().Unix()
+	s.descriptor.SubTime[possibleSubId] = time.Now().UnixNano()
 	s.descriptor.SubId[possibleSubId] = subIdForName
 	s.descriptor.SubRPos[possibleSubId] = 0
 	return possibleSubId
