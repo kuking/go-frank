@@ -38,6 +38,33 @@ func TestGobSerialiser(t *testing.T) {
 	}
 }
 
+func TestGobForInt64(t *testing.T) {
+	buf := [1024]byte{}
+	value := int64(42)
+
+	gobe := GobSerialiser{}
+
+	size, err := gobe.EncodedSize(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if size != 13 {
+		t.Fatal(size)
+	}
+
+	if err = gobe.Encode(value, buf[:0]); err != nil {
+		t.Fatal(err)
+	}
+
+	recovered, err := gobe.Decode(buf[0:size])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(value, recovered) {
+		t.Fatal(fmt.Sprintf("%v != %v", value, recovered))
+	}
+}
+
 func TestByteArraySerialiser(t *testing.T) {
 
 	buf := [1024]byte{}
