@@ -89,7 +89,7 @@ type PersistentStream interface {
 
 	Publish(uri string)
 	// Subscribing, wait approach is UntilNoMoreData
-	Consume(clientName string) Stream
+	Consume(subscriberName string) Stream
 }
 
 type WaitApproach int64

@@ -16,8 +16,8 @@ func OpenCreatePersistentStream(basePath string, partSize uint64, serialiser ser
 	}
 }
 
-func (s *mmapStream) Consume(clientName string) api.Stream {
-	subId := s.SubscriberIdForName(clientName)
+func (s *mmapStream) Consume(subscriberName string) api.Stream {
+	subId := s.SubscriberIdForName(subscriberName)
 	provider := &mmapStreamProviderForSubscriber{
 		subId:        subId,
 		waitApproach: api.UntilNoMoreData,

@@ -46,7 +46,6 @@ func (i *InMemoryRegistry) Unregister(uri string) {
 }
 
 func (i *InMemoryRegistry) Obtain(uri string) (api.Stream, error) {
-
 	URI, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
@@ -61,11 +60,11 @@ func (i *InMemoryRegistry) Obtain(uri string) (api.Stream, error) {
 		return stream.(api.Stream), nil
 	case api.PersistentStream:
 		persistent := stream.(api.PersistentStream)
-		clientName := URI.Query().Get("clientName")
-		if clientName == "" {
-			return nil, errors.New(fmt.Sprintf("persistent stream needs a 'clientName' parameter"))
+		subscriberName := URI.Query().Get("sn")
+		if subscriberName == "" {
+			return nil, errors.New(fmt.Sprintf("persistent stream needs a 'sn' (subscriber name) parameter"))
 		}
-		return persistent.Consume(clientName), nil
+		return persistent.Consume(subscriberName), nil
 	default:
 		return nil, errors.New(fmt.Sprintf("registry does not understand streams of type: %v", reflect.TypeOf(stream)))
 	}

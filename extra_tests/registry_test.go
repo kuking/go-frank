@@ -26,7 +26,7 @@ func TestInMemoryRegistry_Obtain(t *testing.T) {
 	if res, err := imr.Obtain("one?lala=123"); err != nil || res != s1 {
 		t.Fatal(err)
 	}
-	if res, err := imr.Obtain("two?clientName=lala"); err != nil || serialisation.AsString(res.First().Get()) != "record" {
+	if res, err := imr.Obtain("two?sn=lala"); err != nil || serialisation.AsString(res.First().Get()) != "record" {
 		t.Fatal(err)
 	}
 	if _, err := imr.Obtain("two?missing-client-name=lala"); err == nil {
