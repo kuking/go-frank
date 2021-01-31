@@ -11,166 +11,14 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
-
-	"os"
 )
-
-// memory mapped files holding stream data, multi-producer, multi-consumer. Very Fast. Some ideas from LMAX' Disruptor.
-
-const (
-	mmapStreamFileVersion uint64 = 1
-	mmapStreamMaxClients  int    = 64
-	mmapStreamHeaderSize  int    = 2048
-	mmapPartHeaderSize    int    = 1024
-
-	// Entry Header
-	//  1 Byte  = EndOfPart | Valid | SkipToNext
-	//  1 Byte  = Version (1)
-	// 2 bytes  = little endian uint16 length of payload (yes, maximum 64kb)
-	// variable = payload
-	entryHeaderSize int  = 1 + 1 + 4
-	entryVersion    byte = 1
-	entryIsEoP      byte = 0x11
-	entryIsValid    byte = 0x22
-	entrySkip       byte = 0x33 // mark as 'this will never be complete' after certain timeout
-)
-
-type mmapStreamDescriptor struct {
-	Version    uint64
-	UniqId     uint64
-	PartSize   uint64
-	FirstPart  uint64 // to enable infinite streams, to cleanup old parts
-	PartsCount uint64
-	Write      uint64
-	Closed     uint32
-
-	// 64 persistent subscribers
-	SubId   [mmapStreamMaxClients]uint64 // an unique id
-	SubRPos [mmapStreamMaxClients]uint64
-	SubTime [mmapStreamMaxClients]int64 // last time a subscriber was active (reading/writing), updated rarely but helps to cleanup
-}
-
-//needs watchdog: Wlock!=WAlloc and values stay quiet for 1s, producer has die.
-
-type mmapPartFileDescriptor struct {
-	Version uint64
-	UniqId  uint64 // same for descriptor and parts
-	PartNo  uint64
-	ElemOfs [32]uint64
-	ElemNo  [32]uint64
-	// All offsets are global, first 1kb of the part file contains the header and padding zeroes for simplicity.
-	// ElemOfs/ElemNo form an pseudo-index, so the part file can partially seek without sequential reading.
-	// by definition ElemNo[0] is the first element in the part file, ElemNo[31] is the last one. And the ones in
-	// between are spread equally.
-}
-
-type mmapPart struct {
-	filename   string
-	serialiser serialisation.StreamSerialiser
-	partSize   uint64
-	mmap       mmap.MMap
-	descriptor *mmapPartFileDescriptor
-}
-
-func createMmapPart(baseFilename string, uniqId, partNo, partSize uint64) (err error) {
-	fdpPath := baseFilename + fmt.Sprintf(".%05x", partNo)
-	if err = mmapInit(fdpPath, mmapPartHeaderSize+int(partSize)); err != nil {
-		return
-	}
-
-	mm, err := mmapOpen(fdpPath)
-	if err != nil {
-		return
-	}
-	fdpInMM := (*mmapPartFileDescriptor)(unsafe.Pointer(&mm[0]))
-	*fdpInMM = mmapPartFileDescriptor{
-		Version: mmapStreamFileVersion,
-		UniqId:  uniqId,
-		PartNo:  partNo,
-		ElemOfs: [32]uint64{},
-		ElemNo:  [32]uint64{},
-	}
-	return mm.Unmap()
-}
-
-func openMmapPart(baseFilename string, uniqId, partNo, partSize uint64, serialiser serialisation.StreamSerialiser) (mp *mmapPart, err error) {
-	mp = &mmapPart{
-		filename:   baseFilename + fmt.Sprintf(".%05x", partNo),
-		partSize:   partSize,
-		serialiser: serialiser,
-	}
-	mp.mmap, err = mmapOpen(mp.filename)
-	if err != nil {
-		return
-	}
-	mp.descriptor = (*mmapPartFileDescriptor)(unsafe.Pointer(&mp.mmap[0]))
-	if mp.descriptor.UniqId != uniqId {
-		return nil, errors.New("part file is from another stream, different ids!")
-	}
-	return
-}
-
-func (mp *mmapPart) WriteAt(absOfs uint64, elem interface{}, elemLength uint16) {
-	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
-	binary.LittleEndian.PutUint16(mp.mmap[localOfs+2:], elemLength)
-	if err := mp.serialiser.Encode(elem, mp.mmap[localOfs+entryHeaderSize:localOfs+entryHeaderSize+int(elemLength)]); err != nil {
-		panic(fmt.Sprintf("could not write in part, err: %v", err))
-	}
-	mp.mmap[localOfs+1] = entryVersion
-	mp.mmap[localOfs] = entryIsValid
-}
-
-func (mp *mmapPart) WriteEoP(absOfs uint64) {
-	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
-	if uint64(localOfs) >= mp.partSize+uint64(mmapPartHeaderSize) {
-		return
-	}
-	mp.mmap[localOfs] = entryIsEoP
-}
-
-func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint16) {
-	var t0 *time.Time
-	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
-	if uint64(localOfs+entryHeaderSize) > mp.partSize+uint64(mmapPartHeaderSize) {
-		return nil, math.MaxUint16
-	}
-	if mp.mmap[localOfs] == entryIsEoP {
-		return nil, math.MaxUint16
-	}
-	for mp.mmap[localOfs] != entryIsValid {
-		if t0 == nil {
-			t := time.Now()
-			t0 = &t
-		} else {
-			if time.Now().Sub(*t0).Milliseconds() > 10 {
-				panic("implement marking dead element write") //TODO
-			}
-		}
-		runtime.Gosched()
-		time.Sleep(time.Nanosecond)
-	}
-	if mp.mmap[localOfs+1] != entryVersion {
-		panic(fmt.Sprintf("non-supported part file entry version: %v", mp.mmap[localOfs+1]))
-	}
-
-	elemLength = binary.LittleEndian.Uint16(mp.mmap[localOfs+2:])
-	var err error
-	elem, err = mp.serialiser.Decode(mp.mmap[localOfs+entryHeaderSize : localOfs+entryHeaderSize+int(elemLength)])
-	if err != nil {
-		panic(fmt.Sprintf("could not read in part, err: %v", err))
-	}
-	return
-}
-
-func (mp *mmapPart) Close() error {
-	return mp.mmap.Unmap()
-}
 
 type mmapStream struct {
 	serialiser     serialisation.StreamSerialiser
@@ -413,29 +261,6 @@ func (s *mmapStream) SubscriberIdForName(namedSubscriber string) int {
 
 }
 
-func mmapInit(filename string, size int) error {
-	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		return err
-	}
-	if _, err = f.Seek(int64(size)-1, 0); err != nil {
-		return err
-	}
-	if _, err = f.Write([]byte{0}); err != nil {
-		return err
-	}
-	return f.Close()
-}
-
-func mmapOpen(filename string) (mmap.MMap, error) {
-	f, err := os.OpenFile(filename, os.O_RDWR, 0644)
-	defer f.Close()
-	if err != nil {
-		return nil, err
-	}
-	return mmap.Map(f, mmap.RDWR, 0)
-}
-
 func (s *mmapStream) Close() {
 	atomic.StoreUint32(&s.descriptor.Closed, 1)
 }
@@ -448,3 +273,4 @@ func (s *mmapStream) Reset(subId int) uint64 {
 	atomic.StoreUint64(&s.descriptor.SubRPos[subId], 0) //XXX: fix when prune is implemented
 	return 0
 }
+

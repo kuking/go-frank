@@ -1,3 +1,6 @@
 
 Pending
-- persistent stream watchdog to recover from half-transaction (i.e. after 1s stale)
+- persistent failed inserts should be handled properly 
+- hwm vs complete pointers
+- monitoring and debugging
+- loss/throughput/buffers are related / network parameters (X3)
