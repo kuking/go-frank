@@ -5,12 +5,12 @@
 ```
 # 1000 million events of 500 bytes, 500GB of storage used
 % ./franki -ps 1024 -miop 1000 -evs 500 pub_bench
-Totals=1000M IOP; 500000MB; Perfs=1.39M IOPS; 692.52MB/s; avg 721ns/iop; [100%]     
-% ./franki sub_bench                             
-Totals=1000M IOP; 500000MB; Perfs=1.71M IOPS; 856.40MB/s; avg 583ns/iop; [+Inf%]  
+Totals=1000M IOP; 500000MB; Perfs=1.82M IOPS; 909.29MB/s; avg 549ns/iop; [100%]     
+% ./franki sub_bench
+Totals=1000M IOP; 500000MB; Perfs=1.72M IOPS; 862.37MB/s; avg 579ns/iop; [+Inf%]  
 ```
 
-prob. IO saturated, disk is encrypted, see below:
+IO saturated, disk is encrypted, see below:
 
 ```
 % head -c 100000000000 /dev/zero | pv -ba > file
@@ -45,6 +45,14 @@ Totals=100M IOP; 0MB; Perfs=11.71M IOPS; 0.00MB/s; avg 85ns/iop; [100%]
 % ./franki sub_bench
 Totals=100M IOP; 0MB; Perfs=8.38M IOPS; 0.00MB/s; avg 119ns/iop; [+Inf%]
 ```
+
+```
+% ./franki pub_bench
+Totals=100M IOP; 10000MB; Perfs=7.13M IOPS; 713.13MB/s; avg 140ns/iop; [100%]    
+% ./franki sub_bench
+Totals=100M IOP; 10000MB; Perfs=7.98M IOPS; 798.19MB/s; avg 125ns/iop; [+Inf%]
+```
+Default test parameters
 
 ### Raspberry PI 4
 

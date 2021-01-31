@@ -29,7 +29,13 @@ const (
 	mmapStreamHeaderSize  int    = 2048
 	mmapPartHeaderSize    int    = 1024
 
-	entryHeaderSize int  = 8 + 1 // uint64 + byte
+	// Entry Header
+	//  1 Byte  = EndOfPart | Valid | SkipToNext
+	//  1 Byte  = Version (1)
+	// 2 bytes  = little endian uint16 length of payload (yes, maximum 64kb)
+	// variable = payload
+	entryHeaderSize int  = 1 + 1 + 4
+	entryVersion    byte = 1
 	entryIsEoP      byte = 0x11
 	entryIsValid    byte = 0x22
 	entrySkip       byte = 0x33 // mark as 'this will never be complete' after certain timeout
@@ -110,12 +116,13 @@ func openMmapPart(baseFilename string, uniqId, partNo, partSize uint64, serialis
 	return
 }
 
-func (mp *mmapPart) WriteAt(absOfs uint64, elem interface{}, elemLength uint64) {
+func (mp *mmapPart) WriteAt(absOfs uint64, elem interface{}, elemLength uint16) {
 	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
-	binary.LittleEndian.PutUint64(mp.mmap[localOfs+1:], elemLength)
+	binary.LittleEndian.PutUint16(mp.mmap[localOfs+2:], elemLength)
 	if err := mp.serialiser.Encode(elem, mp.mmap[localOfs+entryHeaderSize:localOfs+entryHeaderSize+int(elemLength)]); err != nil {
 		panic(fmt.Sprintf("could not write in part, err: %v", err))
 	}
+	mp.mmap[localOfs+1] = entryVersion
 	mp.mmap[localOfs] = entryIsValid
 }
 
@@ -127,14 +134,14 @@ func (mp *mmapPart) WriteEoP(absOfs uint64) {
 	mp.mmap[localOfs] = entryIsEoP
 }
 
-func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint64) {
+func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint16) {
 	var t0 *time.Time
 	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
 	if uint64(localOfs+entryHeaderSize) > mp.partSize+uint64(mmapPartHeaderSize) {
-		return nil, math.MaxUint64
+		return nil, math.MaxUint16
 	}
 	if mp.mmap[localOfs] == entryIsEoP {
-		return nil, math.MaxUint64
+		return nil, math.MaxUint16
 	}
 	for mp.mmap[localOfs] != entryIsValid {
 		if t0 == nil {
@@ -148,7 +155,11 @@ func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint64) 
 		runtime.Gosched()
 		time.Sleep(time.Nanosecond)
 	}
-	elemLength = binary.LittleEndian.Uint64(mp.mmap[localOfs+1:])
+	if mp.mmap[localOfs+1] != entryVersion {
+		panic(fmt.Sprintf("non-supported part file entry version: %v", mp.mmap[localOfs+1]))
+	}
+
+	elemLength = binary.LittleEndian.Uint16(mp.mmap[localOfs+2:])
 	var err error
 	elem, err = mp.serialiser.Decode(mp.mmap[localOfs+entryHeaderSize : localOfs+entryHeaderSize+int(elemLength)])
 	if err != nil {
@@ -297,28 +308,25 @@ func (s *mmapStream) resolvePart(subId int, partNo uint64) *mmapPart {
 }
 
 func (s *mmapStream) Feed(elem interface{}) {
-
 	encodedSize, err := s.serialiser.EncodedSize(elem)
 	if err != nil {
 		log.Println("error retrieving encoded size, won't recover from this probably, err:", err)
 		return
 	}
-	encodedSizePlusHeader := encodedSize + uint64(entryHeaderSize) // uint64 for length
-
+	encodedSizePlusHeader := int(encodedSize) + entryHeaderSize
 	for i := 0; ; i++ {
 		ofsWrite := atomic.LoadUint64(&s.descriptor.Write)
 		oldOfsWrite := ofsWrite
-		newOfsWrite := ofsWrite + encodedSizePlusHeader
+		newOfsWrite := ofsWrite + uint64(encodedSizePlusHeader)
 		partNo := ofsWrite / s.descriptor.PartSize
 		partLeft := s.descriptor.PartSize - (ofsWrite % s.descriptor.PartSize)
 		writeEoP := false
-		if partLeft < encodedSizePlusHeader {
+		if partLeft < uint64(encodedSizePlusHeader) {
 			writeEoP = true
 			partNo++
 			ofsWrite += partLeft
 			newOfsWrite += partLeft
 		}
-
 		if atomic.CompareAndSwapUint64(&s.descriptor.Write, oldOfsWrite, newOfsWrite) {
 			if writeEoP {
 				mp := s.resolvePart(-1, partNo-1)
@@ -343,14 +351,14 @@ func (s *mmapStream) pullBySubId(subId int, waitApproach api.WaitApproach) (elem
 			partNo := ofsRead / s.descriptor.PartSize
 			part := s.resolvePart(subId, partNo)
 			value, length := part.ReadAt(ofsRead)
-			if length == math.MaxUint64 {
+			if length == math.MaxUint16 {
 				partNo++
 				endSlack := s.descriptor.PartSize - (ofsRead % s.descriptor.PartSize)
 				part = s.resolvePart(subId, partNo)
 				value, length = part.ReadAt(ofsRead + endSlack)
-				ofsNewRead = ofsRead + endSlack + uint64(entryHeaderSize) + length
+				ofsNewRead = ofsRead + endSlack + uint64(entryHeaderSize) + uint64(length)
 			} else {
-				ofsNewRead = ofsRead + uint64(entryHeaderSize) + length
+				ofsNewRead = ofsRead + uint64(entryHeaderSize) + uint64(length)
 			}
 			if atomic.CompareAndSwapUint64(&s.descriptor.SubRPos[subId], ofsRead, ofsNewRead) {
 				return value, false

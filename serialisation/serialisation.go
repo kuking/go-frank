@@ -7,10 +7,8 @@ import (
 	"fmt"
 )
 
-// TODO: this has to handle nil serialisation
-
 type StreamSerialiser interface {
-	EncodedSize(elem interface{}) (size uint64, err error)
+	EncodedSize(elem interface{}) (size uint16, err error)
 	Encode(elem interface{}, buffer []byte) (err error)
 	Decode(slice []byte) (elem interface{}, err error)
 }
@@ -27,13 +25,13 @@ func (w *WritableSlice) Write(p []byte) (n int, err error) {
 // this is very inefficient, allocates and encodes twice (for EncodedSize, etc.) -- we will come back to this
 type GobSerialiser struct{}
 
-func (g GobSerialiser) EncodedSize(elem interface{}) (size uint64, err error) {
+func (g GobSerialiser) EncodedSize(elem interface{}) (size uint16, err error) {
 	var buf bytes.Buffer
 	err = gob.NewEncoder(&buf).Encode(&elem)
 	if err != nil {
 		return 0, err
 	}
-	return uint64(buf.Len()), nil
+	return uint16(buf.Len()), nil
 }
 
 func (g GobSerialiser) Encode(elem interface{}, slice []byte) (err error) {
@@ -48,8 +46,8 @@ func (g GobSerialiser) Decode(slice []byte) (elem interface{}, err error) {
 
 type ByteArraySerialiser struct{}
 
-func (s ByteArraySerialiser) EncodedSize(elem interface{}) (size uint64, err error) {
-	return uint64(len(asByteArray(elem))), nil
+func (s ByteArraySerialiser) EncodedSize(elem interface{}) (size uint16, err error) {
+	return uint16(len(asByteArray(elem))), nil
 }
 
 func (s ByteArraySerialiser) Encode(elem interface{}, buffer []byte) (err error) {
@@ -65,7 +63,7 @@ func (s ByteArraySerialiser) Decode(slice []byte) (elem interface{}, err error) 
 
 type Int64Serialiser struct{}
 
-func (i Int64Serialiser) EncodedSize(elem interface{}) (size uint64, err error) {
+func (i Int64Serialiser) EncodedSize(elem interface{}) (size uint16, err error) {
 	return 8, nil
 }
 
