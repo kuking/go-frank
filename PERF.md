@@ -61,9 +61,9 @@ SD card can't handle more than 11MB/s write, 39MB/s read.
 ```
 # 100 bytes records, 100M, Raspberry Pi 400 Rev 1.0, 4GB RAM, SD CARD
 $ ./franki pub_bench
-Total= 100M IOP; 10000Mb Bytes. Performance=0.12M IOPS; 11.87Mb/s.
+Totals=100M IOP; 10000MB; Perfs=0.21M IOPS; 21.40MB/s; avg 4.672µs/iop; [100%]
 $ ./franki sub_bench
-Total= 100M IOP; 10000Mb Bytes. Performance=0.39M IOPS; 39.03Mb/s.
+Totals=100M IOP; 10000MB; Perfs=0.40M IOPS; 40.46MB/s; avg 2.471µs/iop; [+Inf%]
 ```
 
 
