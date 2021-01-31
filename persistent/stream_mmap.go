@@ -128,7 +128,7 @@ func (mp *mmapPart) WriteEoP(absOfs uint64) {
 }
 
 func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint64) {
-	t0 := time.Time{}
+	var t0 *time.Time
 	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
 	if uint64(localOfs+entryHeaderSize) > mp.partSize+uint64(mmapPartHeaderSize) {
 		return nil, math.MaxUint64
@@ -137,16 +137,16 @@ func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint64) 
 		return nil, math.MaxUint64
 	}
 	for mp.mmap[localOfs] != entryIsValid {
-		if t0.IsZero() {
-			t0 = time.Now()
+		if t0 == nil {
+			t := time.Now()
+			t0 = &t
 		} else {
-			if time.Now().Sub(t0).Milliseconds() > 10 {
+			if time.Now().Sub(*t0).Milliseconds() > 10 {
 				panic("implement marking dead element write") //TODO
 			}
 		}
 		runtime.Gosched()
 		time.Sleep(time.Nanosecond)
-
 	}
 	elemLength = binary.LittleEndian.Uint64(mp.mmap[localOfs+1:])
 	var err error
