@@ -56,7 +56,7 @@ Default test parameters
 
 ### Raspberry PI 4
 
-SD card can't handle more than 11MB/s write, 39MB/s read.
+SD card can't handle more than 21MB/s write, 40MB/s read.
 
 ```
 # 100 bytes records, 100M, Raspberry Pi 400 Rev 1.0, 4GB RAM, SD CARD
