@@ -6,6 +6,7 @@ const (
 	mmapStreamMaxReplicators int    = 16
 	mmapStreamHeaderSize     int    = 2048
 	mmapPartHeaderSize       int    = 1024
+	mmapPartIndexSize        int    = 16
 
 	// Entry Header
 	//  1 Byte  = EndOfPart | Valid | SkipToNext
@@ -42,13 +43,10 @@ type mmapStreamDescriptor struct {
 
 // In memory structure
 type mmapPartFileDescriptor struct {
-	Version uint64
-	UniqId  uint64 // same for descriptor and parts
-	PartNo  uint64
-	ElemOfs [32]uint64
-	ElemNo  [32]uint64
-	// All offsets are global, first 1kb of the part file contains the header and padding zeroes for simplicity.
-	// ElemOfs/ElemNo form an pseudo-index, so the part file can partially seek without sequential reading.
-	// by definition ElemNo[0] is the first element in the part file, ElemNo[31] is the last one. And the ones in
-	// between are spread equally.
+	Version  uint64
+	UniqId   uint64 // same for descriptor and parts
+	PartNo   uint64
+	IndexOfs [mmapPartIndexSize]uint64
+	// IndexOfs[0] is the first element in the part file, IndexOfs[mmapPartIndexesSize-1] is the last one.
+	// the ones in between are spread equally.
 }

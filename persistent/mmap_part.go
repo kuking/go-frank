@@ -8,6 +8,7 @@ import (
 	"github.com/kuking/go-frank/serialisation"
 	"math"
 	"runtime"
+	"sync/atomic"
 	"time"
 	"unsafe"
 )
@@ -32,11 +33,10 @@ func createMmapPart(baseFilename string, uniqId, partNo, partSize uint64) (err e
 	}
 	fdpInMM := (*mmapPartFileDescriptor)(unsafe.Pointer(&mm[0]))
 	*fdpInMM = mmapPartFileDescriptor{
-		Version: mmapStreamFileVersion,
-		UniqId:  uniqId,
-		PartNo:  partNo,
-		ElemOfs: [32]uint64{},
-		ElemNo:  [32]uint64{},
+		Version:  mmapStreamFileVersion,
+		UniqId:   uniqId,
+		PartNo:   partNo,
+		IndexOfs: [mmapPartIndexSize]uint64{},
 	}
 	return mm.Unmap()
 }
@@ -58,14 +58,24 @@ func openMmapPart(baseFilename string, uniqId, partNo, partSize uint64, serialis
 	return
 }
 
+func (mp *mmapPart) UpdateIndexes(absOfs uint64, ofs int) {
+	idx := mmapPartIndexSize * ofs / int(mp.partSize)
+	idxVal := atomic.LoadUint64(&mp.descriptor.IndexOfs[idx])
+	if idxVal == 0 {
+		atomic.StoreUint64(&mp.descriptor.IndexOfs[idx], absOfs)
+	}
+}
+
 func (mp *mmapPart) WriteAt(absOfs uint64, elem interface{}, elemLength uint16) {
-	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
+	ofs := int(absOfs % mp.partSize)
+	localOfs := mmapPartHeaderSize + ofs
 	binary.LittleEndian.PutUint16(mp.mmap[localOfs+2:], elemLength)
 	if err := mp.serialiser.Encode(elem, mp.mmap[localOfs+entryHeaderSize:localOfs+entryHeaderSize+int(elemLength)]); err != nil {
 		panic(fmt.Sprintf("could not write in part, err: %v", err))
 	}
 	mp.mmap[localOfs+1] = entryVersion
 	mp.mmap[localOfs] = entryIsValid
+	mp.UpdateIndexes(absOfs, ofs)
 }
 
 func (mp *mmapPart) WriteEoP(absOfs uint64) {
@@ -113,4 +123,3 @@ func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint16) 
 func (mp *mmapPart) Close() error {
 	return mp.mmap.Unmap()
 }
-
