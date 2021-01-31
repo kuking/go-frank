@@ -28,7 +28,11 @@ const (
 	mmapStreamMaxClients  int    = 64
 	mmapStreamHeaderSize  int    = 2048
 	mmapPartHeaderSize    int    = 1024
-	entryHeaderSize       int    = 8
+
+	entryHeaderSize int  = 8 + 1 // uint64 + byte
+	entryIsEoP      byte = 0x11
+	entryIsValid    byte = 0x22
+	entrySkip       byte = 0x33 // mark as 'this will never be complete' after certain timeout
 )
 
 type mmapStreamDescriptor struct {
@@ -38,7 +42,6 @@ type mmapStreamDescriptor struct {
 	FirstPart  uint64 // to enable infinite streams, to cleanup old parts
 	PartsCount uint64
 	Write      uint64
-	WAlloc     uint64
 	Closed     uint32
 
 	// 64 persistent subscribers
@@ -109,29 +112,43 @@ func openMmapPart(baseFilename string, uniqId, partNo, partSize uint64, serialis
 
 func (mp *mmapPart) WriteAt(absOfs uint64, elem interface{}, elemLength uint64) {
 	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
-	binary.LittleEndian.PutUint64(mp.mmap[localOfs:], elemLength)
+	binary.LittleEndian.PutUint64(mp.mmap[localOfs+1:], elemLength)
 	if err := mp.serialiser.Encode(elem, mp.mmap[localOfs+entryHeaderSize:localOfs+entryHeaderSize+int(elemLength)]); err != nil {
 		panic(fmt.Sprintf("could not write in part, err: %v", err))
 	}
+	mp.mmap[localOfs] = entryIsValid
 }
 
 func (mp *mmapPart) WriteEoP(absOfs uint64) {
 	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
-	if uint64(localOfs+entryHeaderSize) > mp.partSize+uint64(mmapPartHeaderSize) {
+	if uint64(localOfs) >= mp.partSize+uint64(mmapPartHeaderSize) {
 		return
 	}
-	binary.LittleEndian.PutUint64(mp.mmap[localOfs:], math.MaxUint64)
+	mp.mmap[localOfs] = entryIsEoP
 }
 
 func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint64) {
+	t0 := time.Time{}
 	localOfs := mmapPartHeaderSize + int(absOfs%mp.partSize)
 	if uint64(localOfs+entryHeaderSize) > mp.partSize+uint64(mmapPartHeaderSize) {
 		return nil, math.MaxUint64
 	}
-	elemLength = binary.LittleEndian.Uint64(mp.mmap[localOfs:])
-	if elemLength == math.MaxUint64 {
-		return // we probably need the next part
+	if mp.mmap[localOfs] == entryIsEoP {
+		return nil, math.MaxUint64
 	}
+	for mp.mmap[localOfs] != entryIsValid {
+		if t0.IsZero() {
+			t0 = time.Now()
+		} else {
+			if time.Now().Sub(t0).Milliseconds() > 10 {
+				panic("implement marking dead element write") //TODO
+			}
+		}
+		runtime.Gosched()
+		time.Sleep(time.Nanosecond)
+
+	}
+	elemLength = binary.LittleEndian.Uint64(mp.mmap[localOfs+1:])
 	var err error
 	elem, err = mp.serialiser.Decode(mp.mmap[localOfs+entryHeaderSize : localOfs+entryHeaderSize+int(elemLength)])
 	if err != nil {
@@ -176,7 +193,6 @@ func MmapStreamCreate(baseFilename string, partSize uint64, serialiser serialisa
 		FirstPart:  0,
 		PartsCount: 0,
 		Write:      0,
-		WAlloc:     0,
 		Closed:     0,
 		SubId:      [64]uint64{},
 		SubRPos:    [64]uint64{},
@@ -291,33 +307,26 @@ func (s *mmapStream) Feed(elem interface{}) {
 
 	for i := 0; ; i++ {
 		ofsWrite := atomic.LoadUint64(&s.descriptor.Write)
-		ofsWAlloc := atomic.LoadUint64(&s.descriptor.WAlloc)
+		oldOfsWrite := ofsWrite
+		newOfsWrite := ofsWrite + encodedSizePlusHeader
+		partNo := ofsWrite / s.descriptor.PartSize
+		partLeft := s.descriptor.PartSize - (ofsWrite % s.descriptor.PartSize)
+		writeEoP := false
+		if partLeft < encodedSizePlusHeader {
+			writeEoP = true
+			partNo++
+			ofsWrite += partLeft
+			newOfsWrite += partLeft
+		}
 
-		if ofsWrite == ofsWAlloc {
-
-			newOfsStart := ofsWrite
-			newOfsWAlloc := ofsWAlloc + encodedSizePlusHeader
-
-			partNo := ofsWrite / s.descriptor.PartSize
-			partLeft := s.descriptor.PartSize - (ofsWrite % s.descriptor.PartSize)
-			if partLeft < encodedSizePlusHeader {
-				// write end of part marker
-				mp := s.resolvePart(-1, partNo)
-				mp.WriteEoP(newOfsStart)
-				// it will not fit in the last bit of the part, so a new one is required
-				partNo++
-				newOfsStart += partLeft
-				newOfsWAlloc += partLeft
+		if atomic.CompareAndSwapUint64(&s.descriptor.Write, oldOfsWrite, newOfsWrite) {
+			if writeEoP {
+				mp := s.resolvePart(-1, partNo-1)
+				mp.WriteEoP(oldOfsWrite)
 			}
-
-			if atomic.CompareAndSwapUint64(&s.descriptor.WAlloc, ofsWAlloc, newOfsWAlloc) {
-				mp := s.resolvePart(-1, partNo)
-				mp.WriteAt(newOfsStart, elem, encodedSize)
-				if !atomic.CompareAndSwapUint64(&s.descriptor.Write, ofsWrite, newOfsWAlloc) {
-					panic("failed to commit allocated write")
-				}
-				return
-			}
+			mp := s.resolvePart(-1, partNo)
+			mp.WriteAt(ofsWrite, elem, encodedSize)
+			return
 		}
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond) // notice nanos vs micros
