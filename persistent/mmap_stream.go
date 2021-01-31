@@ -44,18 +44,23 @@ func MmapStreamCreate(baseFilename string, partSize uint64, serialiser serialisa
 	if err != nil {
 		return nil, err
 	}
+	uniqId := rand.Uint64()
 	fdfInMM := (*mmapStreamDescriptor)(unsafe.Pointer(&mm[0]))
 	*fdfInMM = mmapStreamDescriptor{
 		Version:    mmapStreamFileVersion,
-		UniqId:     rand.Uint64(),
+		UniqId:     uniqId,
+		ReplicaOf:  uniqId,
 		PartSize:   partSize,
 		FirstPart:  0,
 		PartsCount: 0,
 		Write:      0,
 		Closed:     0,
-		SubId:      [64]uint64{},
-		SubRPos:    [64]uint64{},
-		SubTime:    [64]int64{},
+		SubId:      [mmapStreamMaxClients]uint64{},
+		SubRPos:    [mmapStreamMaxClients]uint64{},
+		SubTime:    [mmapStreamMaxClients]int64{},
+		RepUniqId:  [mmapStreamMaxReplicators]uint64{},
+		RepHWMPos:  [mmapStreamMaxReplicators]uint64{},
+		RepHost:    [mmapStreamMaxReplicators][128]byte{},
 	}
 	if err = mm.Unmap(); err != nil {
 		return nil, err
@@ -273,4 +278,3 @@ func (s *mmapStream) Reset(subId int) uint64 {
 	atomic.StoreUint64(&s.descriptor.SubRPos[subId], 0) //XXX: fix when prune is implemented
 	return 0
 }
-

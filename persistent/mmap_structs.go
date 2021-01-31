@@ -24,6 +24,7 @@ const (
 type mmapStreamDescriptor struct {
 	Version    uint64
 	UniqId     uint64
+	ReplicaOf  uint64 // itself, for sources
 	PartSize   uint64
 	FirstPart  uint64 // to enable infinite streams, to cleanup old parts
 	PartsCount uint64
