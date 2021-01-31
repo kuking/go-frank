@@ -16,7 +16,7 @@ var partSize uint64
 var miop uint
 var eventSize uint
 var baseFile string
-var clientName string
+var subsName string
 var waitApproach int64
 var doHelp bool
 var beQuiet bool
@@ -27,7 +27,7 @@ func doArgsParsing() bool {
 	flag.UintVar(&miop, "miop", 100, "mega-iop to publish (for pub_bench).")
 	flag.UintVar(&eventSize, "evs", 100, "event-size in bytes (for pub_bench)")
 	flag.StringVar(&baseFile, "bs", "persistent-stream", "Base file path")
-	flag.StringVar(&clientName, "cn", "client-1", "Client name")
+	flag.StringVar(&subsName, "sn", "sub-1", "Subscriber name")
 	flag.Int64Var(&waitApproach, "wa", int64(api.UntilNoMoreData), "Wait approach: -1 until closed, 0 until no more data, N ms wait.")
 	flag.BoolVar(&beQuiet, "q", false, "Be quiet, better for performance stats")
 	flag.BoolVar(&doHelp, "h", false, "Show usage")
@@ -93,13 +93,13 @@ func main() {
 	}
 
 	if cmd == "sub" {
-		s := p.Consume(clientName)
+		s := p.Consume(subsName)
 		s.Wait(api.WaitApproach(waitApproach))
 		s.ForEach(func(elem []byte) {
 			fmt.Println(string(elem))
 		})
 	} else if cmd == "pub" {
-		s := p.Consume(clientName)
+		s := p.Consume(subsName)
 		s.Wait(api.WaitApproach(waitApproach))
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
@@ -126,7 +126,7 @@ func main() {
 		os.Exit(0)
 	} else if cmd == "sub_bench" {
 		t0 := time.Now()
-		s := p.Consume(clientName)
+		s := p.Consume(subsName)
 		bytes := 0
 		s.Reset()
 		i := 0
