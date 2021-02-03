@@ -80,9 +80,7 @@ func TestByteArraySerialiser(t *testing.T) {
 		t.Fatal(size)
 	}
 
-	slice := buf[:0]
-
-	if err = bas.Encode(value, slice[:]); err != nil {
+	if err = bas.Encode(value, buf[0:size]); err != nil {
 		t.Fatal(err)
 	}
 
@@ -111,5 +109,33 @@ func TestByteArraySerialiser_Strings(t *testing.T) {
 	}
 	if "lala" != AsString(recovered) {
 		t.Fatal(fmt.Sprintf("lala != %v", recovered))
+	}
+}
+
+func TestInt64Serialiser(t *testing.T) {
+
+	buf := [1024]byte{}
+	value := int64(4242)
+
+	bas := Int64Serialiser{}
+
+	size, err := bas.EncodedSize(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if size != 8 {
+		t.Fatal(size)
+	}
+
+	if err = bas.Encode(value, buf[0:size]); err != nil {
+		t.Fatal(err)
+	}
+
+	recovered, err := bas.Decode(buf[0:size])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(value, recovered) {
+		t.Fatal(fmt.Sprintf("%v != %v", value, recovered))
 	}
 }
