@@ -3,10 +3,11 @@ package transport
 const (
 	WireVersion byte = 1
 	WireHELLO   byte = 1
-	WireACK     byte = 2
-	WireNACK1   byte = 3
-	WireNACKN   byte = 4
-	WireDATA    byte = 5
+	WireDESC    byte = 2
+	WireACK     byte = 3
+	WireNACK1   byte = 4
+	WireNACKN   byte = 5
+	WireDATA    byte = 6
 )
 
 // One wire communication (UDP/TCP) is established per replication link, all structs are sent in little endian
@@ -25,6 +26,15 @@ type WireHelloMsg struct {
 	Message      byte // = WireHELLO
 	Intention    byte // 0=Pull copy, 1=Push copy
 	StreamUniqId uint64
+}
+
+type WireDescriptionMsg struct {
+	Version    byte // = WireVersion
+	Message    byte // = WireDESC
+	PartSize   uint64
+	FirstPart  uint64
+	PartsCount uint64
+	Write      uint64
 }
 
 type WireAcksMsg struct {
