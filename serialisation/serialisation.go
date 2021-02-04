@@ -99,3 +99,21 @@ func AsString(elem interface{}) string {
 		return fmt.Sprint(elem)
 	}
 }
+
+//  normal string to null terminated string
+func ToNTString(target []byte, s string) {
+	copy(target[:], []byte(s))
+	if len(s) < len(target) {
+		target[len(s)] = 0
+	}
+}
+
+// null terminated string to normal string
+func FromNTString(buf []byte) string {
+	for i := 0; i < len(buf); i++ {
+		if buf[i] == 0 {
+			return string(buf[0:i])
+		}
+	}
+	return string(buf)
+}

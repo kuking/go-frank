@@ -139,3 +139,21 @@ func TestInt64Serialiser(t *testing.T) {
 		t.Fatal(fmt.Sprintf("%v != %v", value, recovered))
 	}
 }
+
+func TestNTStrings(t *testing.T) {
+	buf := [10]byte{}
+
+	ToNTString(buf[:], "hello")
+	if FromNTString(buf[:]) != "hello" {
+		t.Fatal()
+	}
+	buf[2] = 0
+	if FromNTString(buf[:]) != "he" {
+		t.Fatal()
+	}
+	ToNTString(buf[:], "1234567890ABCDEF")
+	if FromNTString(buf[:]) != "1234567890" {
+		t.Fatal()
+	}
+
+}

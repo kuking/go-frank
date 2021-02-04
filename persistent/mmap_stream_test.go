@@ -70,6 +70,9 @@ func TestMmapStreamSubscriberForID(t *testing.T) {
 		if id < 0 || id > 64 {
 			t.Fatal("id should be between 0 and 64")
 		}
+		if serialisation.FromNTString(s.descriptor.SubName[id][:]) != fmt.Sprint(i) {
+			t.Fatal()
+		}
 		ids[id]++
 	}
 
@@ -80,6 +83,10 @@ func TestMmapStreamSubscriberForID(t *testing.T) {
 	}
 
 	if s.SubscriberIdForName("123") != s.SubscriberIdForName("123") {
+		t.Fatal()
+	}
+	idx := s.SubscriberIdForName("123")
+	if serialisation.FromNTString(s.descriptor.SubName[idx][:]) != "123" {
 		t.Fatal()
 	}
 

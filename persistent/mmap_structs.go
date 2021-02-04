@@ -4,7 +4,7 @@ const (
 	mmapStreamFileVersion    uint64 = 1
 	mmapStreamMaxClients     int    = 64
 	mmapStreamMaxReplicators int    = 16
-	mmapStreamHeaderSize     int    = 2048
+	mmapStreamHeaderSize     int    = 8192
 	mmapPartHeaderSize       int    = 1024
 	mmapPartIndexSize        int    = 16
 
@@ -32,14 +32,15 @@ type mmapStreamDescriptor struct {
 	Closed     uint32
 
 	// 64 persistent subscribers
-	SubId   [mmapStreamMaxClients]uint64 // an unique id
-	SubRPos [mmapStreamMaxClients]uint64
-	SubTime [mmapStreamMaxClients]int64 // last time a subscriber was active (reading/writing), updated rarely but helps to cleanup
+	SubId   [mmapStreamMaxClients]uint64   // an unique id
+	SubRPos [mmapStreamMaxClients]uint64   // subscriber read pos
+	SubTime [mmapStreamMaxClients]int64    // last time a subscriber was active (reading/writing), updated rarely but helps to cleanup
+	SubName [mmapStreamMaxClients][64]byte // subscriber names
 
-	// replicators state, replicator for UniqId 'X' is the subscriber: 'Replicator:X'
-	RepUniqId [mmapStreamMaxReplicators]uint64
-	RepHWMPos [mmapStreamMaxReplicators]uint64
-	RepHost   [mmapStreamMaxReplicators][128]byte
+	// replicators state, replicator for UniqId 'X' is the subscriber: 'Repl:X'
+	RepUniqId [mmapStreamMaxReplicators]uint64    // counter-party uniq-id
+	RepHWMPos [mmapStreamMaxReplicators]uint64    // high-water-mark for replica
+	RepHost   [mmapStreamMaxReplicators][128]byte // last known host
 }
 
 // In memory structure

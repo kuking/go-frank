@@ -245,6 +245,7 @@ func (s *mmapStream) SubscriberIdForName(namedSubscriber string) int {
 	for i, subId := range s.descriptor.SubId {
 		if subId == subIdForName {
 			s.descriptor.SubTime[i] = time.Now().UnixNano()
+			serialisation.ToNTString(s.descriptor.SubName[i][:], namedSubscriber)
 			return i
 		}
 	}
@@ -260,6 +261,7 @@ func (s *mmapStream) SubscriberIdForName(namedSubscriber string) int {
 	}
 	// picks the older subscriber slot
 	s.descriptor.SubTime[possibleSubId] = time.Now().UnixNano()
+	serialisation.ToNTString(s.descriptor.SubName[possibleSubId][:], namedSubscriber)
 	s.descriptor.SubId[possibleSubId] = subIdForName
 	s.descriptor.SubRPos[possibleSubId] = 0
 	return possibleSubId
