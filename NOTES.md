@@ -5,3 +5,4 @@ Pending
 - monitoring and debugging
 - loss/throughput/buffers are related / network parameters (X3)
 - ftop
+- https://github.com/newtools/zsocket
