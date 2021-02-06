@@ -9,7 +9,7 @@ import (
 	"net"
 )
 
-type Synchroniser struct {
+type Replicator struct {
 	Close bool
 }
 
@@ -84,7 +84,7 @@ func (l *SyncLink) seekAndHandleMessage() error {
 	return nil
 }
 
-func (s *Synchroniser) ListenTCP(bind string) error {
+func (s *Replicator) ListenTCP(bind string) error {
 	serverAddr, err := net.ResolveTCPAddr("tcp", bind)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (s *Synchroniser) ListenTCP(bind string) error {
 	}
 }
 
-func (s *Synchroniser) ListenUDP(bind string) error {
+func (s *Replicator) ListenUDP(bind string) error {
 
 	ServerAddr, err := net.ResolveUDPAddr("udp", bind)
 	if err != nil {

@@ -2,7 +2,7 @@
 all: clean build test coverage benchmark binary
 
 clean:
-	rm -f franki coverage.out
+	rm -f franki frankr coverage.out
 	go clean -testcache -testcache
 
 build:
@@ -10,6 +10,7 @@ build:
 
 binary:
 	go build -o franki cli/franki/main.go
+	go build -o frankr cli/frankr/main.go
 
 test:
 	go test ./...
