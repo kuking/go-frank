@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/kuking/go-frank/transport"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -16,7 +18,7 @@ func doArgsParsing() bool {
 		fmt.Print(`Examples:
 
   $ ./frankr send replicator_name@streams/file-stream hostname:port
-  $ ./frankr accept streams/ 192.168.0.* another_host
+  $ ./frankr accept streams/ bind_host:port optional_host 192.168.0.0/24 another_host
   $ ./frankr ps
   $ ./frankr top streams/
   $ ./frankr stop <pid>
@@ -37,8 +39,21 @@ func doArgsParsing() bool {
 		return true
 	} else if len(os.Args) > 3 && os.Args[1] == "accept" {
 		basePath := os.Args[2]
-		accepted := os.Args[3:]
-		fmt.Println("so accepting connections for hosts:", accepted, "and replicating into:", basePath)
+		binding := os.Args[3]
+		var accepted []string
+		if len(os.Args) > 4 {
+			accepted = os.Args[4:]
+			fmt.Println("Warning: listening filters is not implemented yet.")
+		} else {
+			accepted = []string{"*"}
+		}
+
+		s := transport.Replicator{}
+		log.Printf("Accepting: %v; streams in: %v\n", binding, basePath)
+		if err := s.ListenTCP(binding); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("so accepting connections at", binding, "for hosts:", accepted, "and replicating into:", basePath)
 		return true
 	} else if len(os.Args) == 2 && os.Args[1] == "ps" {
 		fmt.Println("so listing all the replication processes, just by name")
