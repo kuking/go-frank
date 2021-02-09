@@ -3,67 +3,71 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/kuking/go-frank/transport"
 	"os"
+	"strconv"
+	"strings"
 )
-
-var doHelp bool
-var doSetReplica bool
-var doDelReplica bool
-var baseFile string
-var replName string
-var hostname string
-var acceptNewPush bool
-var binding string
-var doReceive bool
-var doSend bool
 
 func doArgsParsing() bool {
 
-	flag.StringVar(&baseFile, "bs", "persistent-stream", "Base file path")
-	flag.StringVar(&replName, "rn", "repl-1", "Replicator name")
-	flag.StringVar(&hostname, "host", "", "Hostname")
-	flag.BoolVar(&doSetReplica, "set", false, "set replica configuration")
-	flag.BoolVar(&doDelReplica, "del", false, "delete replica configuration")
-	flag.BoolVar(&acceptNewPush, "accept", false, "Accept new replica pushes")
-	flag.StringVar(&binding, "bind", ":4500", "Listening host:port to bind to")
-	flag.BoolVar(&doReceive, "receive", false, "Receive replicas (already accepted ones, or new ones if open to accept)")
-	flag.BoolVar(&doSend, "send", false, "Send replicas (already configured to be replicated.)")
-	flag.BoolVar(&doHelp, "h", false, "Show usage")
-	flag.Parse()
-	if doHelp {
+	if len(os.Args) <= 1 {
 		fmt.Printf("Usage of %v: Frank Stream Bus replicator\n\n", os.Args[0])
 		flag.PrintDefaults()
-		fmt.Print(`
+		fmt.Print(`Examples:
 
-Examples:
-
-  $ ./frankr -bs stream-name -rn repl-to-hostA -host hostA -set
-  $ ./frankr -bs stream-name -rn repl-to-hostA -del
-  $ ./frankr -bs ./ -receive -send
-  $ ./
+  $ ./frankr send replicator_name@streams/file-stream hostname:port
+  $ ./frankr accept streams/ 192.168.0.* another_host
+  $ ./frankr ps
+  $ ./frankr top streams/
+  $ ./frankr stop <pid>
 `)
 		return false
 	}
 
-	if doSetReplica && doDelReplica {
-		fmt.Println("Can not set and delete replica configuration at the same time")
-		return false
-	} else if (doSetReplica || doDelReplica) && (doReceive && doSetReplica && acceptNewPush) {
-		fmt.Println("Replica configuration and replication server settings can not be configured at the same time")
-		return false
-	} else if !doSetReplica && !doDelReplica && !doReceive && !doSend {
-		fmt.Println("No command provided, i.e. -set -del -send -receive")
+	if len(os.Args) == 4 && os.Args[1] == "send" {
+		parsed := strings.Split(os.Args[2], "@")
+		if len(parsed) != 2 {
+			fmt.Println("replicator_id and base_stream has to be provided, i.e. sub1@streams/number-one")
+			return false
+		}
+		replName := parsed[0]
+		basePath := parsed[1]
+		hostName := os.Args[3]
+		fmt.Println("so sending:", replName, "@", basePath, "->", hostName)
+		return true
+	} else if len(os.Args) > 3 && os.Args[1] == "accept" {
+		basePath := os.Args[2]
+		accepted := os.Args[3:]
+		fmt.Println("so accepting connections for hosts:", accepted, "and replicating into:", basePath)
+		return true
+	} else if len(os.Args) == 2 && os.Args[1] == "ps" {
+		fmt.Println("so listing all the replication processes, just by name")
+	} else if len(os.Args) == 3 && os.Args[1] == "top" {
+		basePath := os.Args[2]
+		fmt.Println("top streams in path", basePath)
+		return true
+	} else if len(os.Args) == 3 && os.Args[1] == "stop" {
+		pid, err := strconv.Atoi(os.Args[2])
+		if err != nil {
+			fmt.Println("could not parse the pid number, err:", err)
+			return false
+		}
+		fmt.Println("trying to stop pid", pid)
+		return true
+	} else {
+		fmt.Println("The arguments provided could not be understood.")
 		return false
 	}
-	return true
+
+	return false
 }
 
 func main() {
 	if !doArgsParsing() {
 		os.Exit(-1)
 	}
-	s := transport.Replicator{}
-	err := s.ListenTCP(":4500")
-	fmt.Println(err)
+
+	//s := transport.Replicator{}
+	//err := s.ListenTCP(":4500")
+	//fmt.Println(err)
 }
