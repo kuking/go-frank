@@ -4,7 +4,7 @@ const (
 	mmapStreamFileVersion    uint64 = 1
 	mmapStreamMaxClients     int    = 64
 	mmapStreamMaxReplicators int    = 16
-	mmapStreamHeaderSize     int    = 8192
+	mmapStreamHeaderSize     int    = 9 * 1024
 	mmapPartHeaderSize       int    = 1024
 	mmapPartIndexSize        int    = 16
 
@@ -20,7 +20,7 @@ const (
 	entrySkip       byte = 0x33 // mark as 'this will never be complete' after certain timeout
 )
 
-// In memory structure
+// Descriptor file structure
 type mmapStreamDescriptor struct {
 	Version    uint64
 	UniqId     uint64
@@ -40,10 +40,11 @@ type mmapStreamDescriptor struct {
 	// replicators state, replicator for UniqId 'X' is the subscriber: 'Repl:X'
 	RepUniqId [mmapStreamMaxReplicators]uint64    // counter-party uniq-id
 	RepHWMPos [mmapStreamMaxReplicators]uint64    // high-water-mark for replica
+	RepName   [mmapStreamMaxReplicators][64]byte  // replicator-name
 	RepHost   [mmapStreamMaxReplicators][128]byte // last known host
 }
 
-// In memory structure
+// Part File header structure
 type mmapPartFileDescriptor struct {
 	Version  uint64
 	UniqId   uint64 // same for descriptor and parts

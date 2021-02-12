@@ -1,8 +1,6 @@
 package persistent
 
 import (
-	"crypto/sha512"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/edsrzf/mmap-go"
@@ -194,10 +192,10 @@ func (s *mmapStream) Feed(elem interface{}) {
 	}
 }
 
-func (s *mmapStream) pullBySubId(subId int, waitApproach api.WaitApproach) (elem interface{}, closed bool) {
+func (s *mmapStream) pullBySubId(subId int, waitApproach api.WaitApproach) (elem interface{}, ofsRead uint64, closed bool) {
 	var totalNsWait int64
 	for i := 0; ; i++ {
-		ofsRead := atomic.LoadUint64(&s.descriptor.SubRPos[subId])
+		ofsRead = atomic.LoadUint64(&s.descriptor.SubRPos[subId])
 		ofsWrite := atomic.LoadUint64(&s.descriptor.Write)
 		if ofsRead < ofsWrite {
 			var ofsNewRead uint64
@@ -214,10 +212,10 @@ func (s *mmapStream) pullBySubId(subId int, waitApproach api.WaitApproach) (elem
 				ofsNewRead = ofsRead + uint64(entryHeaderSize) + uint64(length)
 			}
 			if atomic.CompareAndSwapUint64(&s.descriptor.SubRPos[subId], ofsRead, ofsNewRead) {
-				return value, false
+				return value, ofsRead, false
 			}
 		} else if s.IsClosed() {
-			return nil, true
+			return nil, ofsRead, true
 		}
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond)
@@ -225,47 +223,9 @@ func (s *mmapStream) pullBySubId(subId int, waitApproach api.WaitApproach) (elem
 		if waitApproach == api.UntilClosed {
 			// just continue
 		} else if totalNsWait > int64(waitApproach) {
-			return nil, true
+			return nil, ofsRead, true
 		}
 	}
-}
-
-func (s *mmapStream) SubscriberIdForName(namedSubscriber string) int {
-	s.subIdLock.Lock()
-	defer s.subIdLock.Unlock()
-
-	c := sha512.Sum512_256([]byte(namedSubscriber))
-	subIdForName := s.descriptor.UniqId ^
-		binary.LittleEndian.Uint64(c[0:8]) ^
-		binary.LittleEndian.Uint64(c[8:16]) ^
-		binary.LittleEndian.Uint64(c[16:24]) ^
-		binary.LittleEndian.Uint64(c[24:32])
-
-	// already subscribed? reuse
-	for i, subId := range s.descriptor.SubId {
-		if subId == subIdForName {
-			s.descriptor.SubTime[i] = time.Now().UnixNano()
-			serialisation.ToNTString(s.descriptor.SubName[i][:], namedSubscriber)
-			return i
-		}
-	}
-
-	// find a new sloth
-	var possibleSubId int
-	posibleSubTime := int64(math.MaxInt64)
-	for i := 0; i < len(s.descriptor.SubId); i++ {
-		if posibleSubTime > s.descriptor.SubTime[i] {
-			posibleSubTime = s.descriptor.SubTime[i]
-			possibleSubId = i
-		}
-	}
-	// picks the older subscriber slot
-	s.descriptor.SubTime[possibleSubId] = time.Now().UnixNano()
-	serialisation.ToNTString(s.descriptor.SubName[possibleSubId][:], namedSubscriber)
-	s.descriptor.SubId[possibleSubId] = subIdForName
-	s.descriptor.SubRPos[possibleSubId] = 0
-	return possibleSubId
-
 }
 
 func (s *mmapStream) Close() {
