@@ -16,7 +16,7 @@ func OpenCreatePersistentStream(basePath string, partSize uint64, serialiser ser
 	}
 }
 
-func (s *mmapStream) Consume(subscriberName string) api.Stream {
+func (s *MmapStream) Consume(subscriberName string) api.Stream {
 	subId := s.SubscriberIdForName(subscriberName)
 	provider := &mmapStreamProviderForSubscriber{
 		subId:        subId,
@@ -31,14 +31,14 @@ func (s *mmapStream) Consume(subscriberName string) api.Stream {
 }
 
 //FIXME
-func (s *mmapStream) Publish(uri string) {
+func (s *MmapStream) Publish(uri string) {
 	base.LocalRegistry.Register(uri, s)
 }
 
 type mmapStreamProviderForSubscriber struct {
 	subId        int
 	waitApproach api.WaitApproach
-	mmapStream   *mmapStream
+	mmapStream   *MmapStream
 }
 
 func (ms *mmapStreamProviderForSubscriber) Feed(elem interface{}) {

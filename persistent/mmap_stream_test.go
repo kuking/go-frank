@@ -59,7 +59,7 @@ func TestSimpleCreateCloseOpenFeedCloseConsumeDelete(t *testing.T) {
 	base := prefix + "/a-stream"
 	defer cleanup(prefix)
 
-	var s *mmapStream
+	var s *MmapStream
 	var err error
 	if s, err = MmapStreamCreate(base, 64*1024, &serialisation.ByteArraySerialiser{}); err != nil {
 		t.Fatal()

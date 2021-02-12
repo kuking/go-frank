@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func (s *mmapStream) SubscriberIdForName(namedSubscriber string) int {
+func (s *MmapStream) SubscriberIdForName(namedSubscriber string) int {
 	s.subIdLock.Lock()
 	defer s.subIdLock.Unlock()
 
@@ -46,7 +46,7 @@ func (s *mmapStream) SubscriberIdForName(namedSubscriber string) int {
 	return possibleSubId
 }
 
-func (s *mmapStream) GetReplicatorIds() (reps []int) {
+func (s *MmapStream) GetReplicatorIds() (reps []int) {
 	reps = make([]int, 0)
 	for repId := 0; repId < mmapStreamMaxReplicators; repId++ {
 		if len(serialisation.FromNTString(s.descriptor.SubName[repId][:])) != 0 {
@@ -56,12 +56,13 @@ func (s *mmapStream) GetReplicatorIds() (reps []int) {
 	return
 }
 
-func (s *mmapStream) ReplicatorIdForNameHost(name, host string) (repId int, created bool) {
+func (s *MmapStream) ReplicatorIdForNameHost(name, host string) (repId, subId int, created bool) {
 	for repId = 0; repId < mmapStreamMaxReplicators; repId++ {
 		if serialisation.FromNTString(s.descriptor.RepName[repId][:]) == name {
 			serialisation.ToNTString(s.descriptor.RepHost[repId][:], host)
-			s.SubscriberIdForName(fmt.Sprintf("REPL:%v", name))
-			return repId, false
+			subId = s.SubscriberIdForName(fmt.Sprintf("REPL:%v", name))
+			created = false
+			return
 		}
 	}
 	for repId = 0; repId < mmapStreamMaxReplicators; repId++ {
@@ -71,7 +72,7 @@ func (s *mmapStream) ReplicatorIdForNameHost(name, host string) (repId int, crea
 	}
 	serialisation.ToNTString(s.descriptor.RepName[repId][:], name)
 	serialisation.ToNTString(s.descriptor.RepHost[repId][:], host)
-	s.SubscriberIdForName(fmt.Sprintf("REPL:%v", name))
+	subId = s.SubscriberIdForName(fmt.Sprintf("REPL:%v", name))
 	created = true
 	return
 }

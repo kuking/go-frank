@@ -18,7 +18,7 @@ import (
 	"unsafe"
 )
 
-type mmapStream struct {
+type MmapStream struct {
 	serialiser     serialisation.StreamSerialiser
 	baseFilename   string
 	descriptorMmap mmap.MMap
@@ -29,7 +29,7 @@ type mmapStream struct {
 	subIdLock      sync.Mutex                      // lock used to allocate unique subId
 }
 
-func MmapStreamCreate(baseFilename string, partSize uint64, serialiser serialisation.StreamSerialiser) (s *mmapStream, err error) {
+func MmapStreamCreate(baseFilename string, partSize uint64, serialiser serialisation.StreamSerialiser) (s *MmapStream, err error) {
 	if partSize < 64*1024 {
 		return nil, errors.New("part file should be at least 64k")
 	}
@@ -66,8 +66,9 @@ func MmapStreamCreate(baseFilename string, partSize uint64, serialiser serialisa
 	return MmapStreamOpen(baseFilename, serialiser)
 }
 
-func MmapStreamOpen(baseFilename string, serialiser serialisation.StreamSerialiser) (s *mmapStream, err error) {
-	s = &mmapStream{
+// Internal mmap Stream exported advanced usage, for streaming use the standard API: go_frank.PersistentStream
+func MmapStreamOpen(baseFilename string, serialiser serialisation.StreamSerialiser) (s *MmapStream, err error) {
+	s = &MmapStream{
 		serialiser:   serialiser,
 		baseFilename: baseFilename,
 	}
@@ -80,7 +81,7 @@ func MmapStreamOpen(baseFilename string, serialiser serialisation.StreamSerialis
 	return
 }
 
-func (s *mmapStream) CloseFile() error {
+func (s *MmapStream) CloseFile() error {
 	for _, part := range s.subPart {
 		if part != nil {
 			_ = part.Close()
@@ -92,7 +93,7 @@ func (s *mmapStream) CloseFile() error {
 	return s.descriptorMmap.Unmap()
 }
 
-func (s *mmapStream) Delete() error {
+func (s *MmapStream) Delete() error {
 	_ = s.CloseFile()
 	files, err := filepath.Glob(s.baseFilename + ".?????")
 	if err != nil {
@@ -106,7 +107,7 @@ func (s *mmapStream) Delete() error {
 	return nil
 }
 
-func (s *mmapStream) resolvePart(subId int, partNo uint64) *mmapPart {
+func (s *MmapStream) resolvePart(subId int, partNo uint64) *mmapPart {
 	// fast answer
 	if subId == -1 && s.writerPart != nil && s.writerPart.descriptor.PartNo == partNo {
 		return s.writerPart
@@ -158,7 +159,7 @@ func (s *mmapStream) resolvePart(subId int, partNo uint64) *mmapPart {
 	return part
 }
 
-func (s *mmapStream) Feed(elem interface{}) {
+func (s *MmapStream) Feed(elem interface{}) {
 	encodedSize, err := s.serialiser.EncodedSize(elem)
 	if err != nil {
 		log.Println("error retrieving encoded size, won't recover from this probably, err:", err)
@@ -192,7 +193,7 @@ func (s *mmapStream) Feed(elem interface{}) {
 	}
 }
 
-func (s *mmapStream) pullBySubId(subId int, waitApproach api.WaitApproach) (elem interface{}, ofsRead uint64, closed bool) {
+func (s *MmapStream) pullBySubId(subId int, waitApproach api.WaitApproach) (elem interface{}, ofsRead uint64, closed bool) {
 	var totalNsWait int64
 	for i := 0; ; i++ {
 		ofsRead = atomic.LoadUint64(&s.descriptor.SubRPos[subId])
@@ -228,15 +229,15 @@ func (s *mmapStream) pullBySubId(subId int, waitApproach api.WaitApproach) (elem
 	}
 }
 
-func (s *mmapStream) Close() {
+func (s *MmapStream) Close() {
 	atomic.StoreUint32(&s.descriptor.Closed, 1)
 }
 
-func (s *mmapStream) IsClosed() bool {
+func (s *MmapStream) IsClosed() bool {
 	return atomic.LoadUint32(&s.descriptor.Closed) != 0
 }
 
-func (s *mmapStream) Reset(subId int) uint64 {
+func (s *MmapStream) Reset(subId int) uint64 {
 	atomic.StoreUint64(&s.descriptor.SubRPos[subId], 0) //XXX: fix when prune is implemented
 	return 0
 }

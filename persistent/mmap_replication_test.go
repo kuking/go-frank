@@ -63,13 +63,13 @@ func TestMmapStream_GetRepSubIds(t *testing.T) {
 		t.Fatal()
 	}
 
-	repId, created := s.ReplicatorIdForNameHost("hello", "a-host")
-	if repId == -1 || !created {
+	repId, subId, created := s.ReplicatorIdForNameHost("hello", "a-host")
+	if repId == -1 || subId == -1 || !created {
 		t.Fatal()
 	}
 
-	repId2, created2 := s.ReplicatorIdForNameHost("hello", "another-host")
-	if repId != repId2 || created2 {
+	repId2, subId2, created2 := s.ReplicatorIdForNameHost("hello", "another-host")
+	if repId != repId2 || subId != subId2 || created2 {
 		t.Fatal()
 	}
 
