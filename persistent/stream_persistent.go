@@ -24,7 +24,7 @@ func (s *MmapStream) Consume(subscriberName string) api.Stream {
 		mmapStream:   s,
 	}
 	pullFn := func() (read interface{}, closed bool) {
-		read, _, closed = s.pullBySubId(subId, provider.waitApproach)
+		read, _, closed = s.PullBySubId(subId, provider.waitApproach)
 		return
 	}
 	return base.NewStreamImpl(provider, pullFn)
@@ -53,7 +53,7 @@ func (ms *mmapStreamProviderForSubscriber) IsClosed() bool {
 }
 
 func (ms *mmapStreamProviderForSubscriber) Pull() (elem interface{}, closed bool) {
-	elem, _, closed = ms.mmapStream.pullBySubId(ms.subId, ms.waitApproach)
+	elem, _, closed = ms.mmapStream.PullBySubId(ms.subId, ms.waitApproach)
 	return
 }
 

@@ -193,7 +193,7 @@ func (s *MmapStream) Feed(elem interface{}) {
 	}
 }
 
-func (s *MmapStream) pullBySubId(subId int, waitApproach api.WaitApproach) (elem interface{}, ofsRead uint64, closed bool) {
+func (s *MmapStream) PullBySubId(subId int, waitApproach api.WaitApproach) (elem interface{}, ofsRead uint64, closed bool) {
 	var totalNsWait int64
 	for i := 0; ; i++ {
 		ofsRead = atomic.LoadUint64(&s.descriptor.SubRPos[subId])

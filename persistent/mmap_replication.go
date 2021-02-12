@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/kuking/go-frank/serialisation"
 	"math"
+	"sync/atomic"
 	"time"
 )
 
@@ -75,4 +76,9 @@ func (s *MmapStream) ReplicatorIdForNameHost(name, host string) (repId, subId in
 	subId = s.SubscriberIdForName(fmt.Sprintf("REPL:%v", name))
 	created = true
 	return
+}
+
+// Resets Subscriber Read Position
+func (s *MmapStream) ResetSubRPos(subId int, absPos uint64) {
+	atomic.StoreUint64(&s.descriptor.SubRPos[subId], absPos)
 }
