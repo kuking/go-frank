@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha1"
 	"flag"
 	"fmt"
 	frank "github.com/kuking/go-frank"
@@ -41,8 +42,9 @@ func doArgsParsing() bool {
 
 COMMANDS:
   - pub  : publish lines coming from stdin into the persistent stream
-  - sub  : subscribe and output to stdout from the persistem stream
- - info : describes the stream state
+  - sub  : subscribe and output to stdout from the persistent stream
+  - hash : subscribe, resets to beginning and consumes the whole stream calculating its SHA1
+  - info : describes the stream state
 
   Benchmarks:
   - pub_bench : generates 100M events of 100 bytes, outputs performance.
@@ -57,7 +59,7 @@ Examples:
 	}
 
 	cmd = os.Args[len(os.Args)-1]
-	if cmd != "pub" && cmd != "sub" && cmd != "info" && cmd != "pub_bench" && cmd != "sub_bench" {
+	if cmd != "pub" && cmd != "sub" && cmd != "hash" && cmd != "info" && cmd != "pub_bench" && cmd != "sub_bench" {
 		fmt.Println("Unknown command:", cmd)
 		return false
 	}
@@ -103,6 +105,25 @@ func main() {
 		s.ForEach(func(elem []byte) {
 			fmt.Println(string(elem))
 		})
+	} else if cmd == "hash" {
+		hash := sha1.New()
+		t0 := time.Now()
+		i := uint64(0)
+		bytes := uint64(0)
+		s := p.Consume(subsName)
+		s.Wait(api.WaitApproach(waitApproach)).Reset()
+		s.ForEach(func(elem []byte) {
+			i++
+			bytes += uint64(len(elem))
+			logStats(&t0, i, 0, bytes, false)
+			if n, err := hash.Write(elem); n != len(elem) || err != nil {
+				panic(err)
+			}
+		})
+		fmt.Println()
+		fmt.Printf(" SHA1: %x\n", hash.Sum(nil))
+		fmt.Printf("Bytes: %d\n", bytes)
+		fmt.Printf("Elems: %d\n", i)
 	} else if cmd == "pub" {
 		s := p.Consume(subsName)
 		s.Wait(api.WaitApproach(waitApproach))
