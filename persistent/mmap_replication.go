@@ -78,7 +78,22 @@ func (s *MmapStream) ReplicatorIdForNameHost(name, host string) (repId, subId in
 	return
 }
 
-// Resets Subscriber Read Position
+// Gets Subscriber Read Position
+func (s *MmapStream) ReadSubRPos(subId int) uint64 {
+	return atomic.LoadUint64(&s.descriptor.SubRPos[subId])
+}
+
+// Resets Subscriber Read Position to given AbsPos (advance: don't use, for replication purposes.)
 func (s *MmapStream) SetSubRPos(subId int, absPos uint64) {
 	atomic.StoreUint64(&s.descriptor.SubRPos[subId], absPos)
+}
+
+// Gets Writer Position
+func (s *MmapStream) WritePos() uint64 {
+	return atomic.LoadUint64(&s.descriptor.Write)
+}
+
+// Resets Writer Position (advanced: don't use, for replication purposes.)
+func (s *MmapStream) SetWritePos(absPos uint64) {
+	atomic.StoreUint64(&s.descriptor.Write, absPos)
 }
