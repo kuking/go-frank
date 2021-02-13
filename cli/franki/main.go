@@ -17,6 +17,7 @@ var miop uint
 var eventSize uint
 var baseFile string
 var subsName string
+var resetSubscriber bool
 var waitApproach int64
 var doHelp bool
 var beQuiet bool
@@ -28,6 +29,7 @@ func doArgsParsing() bool {
 	flag.UintVar(&eventSize, "evs", 100, "event-size in bytes (for pub_bench)")
 	flag.StringVar(&baseFile, "bs", "persistent-stream", "Base file path")
 	flag.StringVar(&subsName, "sn", "sub-1", "Subscriber name")
+	flag.BoolVar(&resetSubscriber, "rs", false, "Reset Subscriber AbsReadPos to 0")
 	flag.Int64Var(&waitApproach, "wa", int64(api.UntilNoMoreData), "Wait approach: -1 until closed, 0 until no more data, N ms wait.")
 	flag.BoolVar(&beQuiet, "q", false, "Be quiet, better for performance stats")
 	flag.BoolVar(&doHelp, "h", false, "Show usage")
@@ -95,6 +97,9 @@ func main() {
 	if cmd == "sub" {
 		s := p.Consume(subsName)
 		s.Wait(api.WaitApproach(waitApproach))
+		if resetSubscriber {
+			s.Reset()
+		}
 		s.ForEach(func(elem []byte) {
 			fmt.Println(string(elem))
 		})
