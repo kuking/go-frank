@@ -84,7 +84,6 @@ func (s *SyncLink) goFuncSend() {
 			wireHelloMsg = WireHelloMsg{
 				Version:      WireVersion,
 				Message:      WireHELLO,
-				Intention:    1, // push
 				StreamUniqId: s.Stream.GetUniqId(),
 			}
 			err = binary.Write(s.conn, binary.LittleEndian, &wireHelloMsg)
@@ -168,8 +167,8 @@ func (s *SyncLink) seekAndHandleMessage() error {
 	}
 	if s.buf[1] == WireHELLO {
 		// handle hello
-	} else if s.buf[1] == WireDESC {
-		// handle wireDESC
+	} else if s.buf[1] == WireSTATUS {
+		// handle wireSTATUS
 	} else if s.buf[1] == WireACK {
 		// handle ACK
 	} else if s.buf[1] == WireNACK1 {
