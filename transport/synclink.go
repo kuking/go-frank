@@ -88,7 +88,9 @@ func (s *SyncLink) handleError(err error) bool {
 	if err == nil {
 		return false
 	}
-	log.Println(err)
+	if s.State != DISCONNECTED { // so it does not fails when we know it will fail
+		log.Println(err)
+	}
 	s.incError()
 	_ = s.conn.Close()
 	s.State = DISCONNECTED
@@ -101,6 +103,8 @@ func (s *SyncLink) goFuncSend() {
 	var wireHelloMsg WireHelloMsg
 	var wireStatusMsg WireStatusMsg
 	var wireDataMsg WireDataMsg
+
+	go s.goFuncSendAncillary()
 
 	for {
 		if s.Closed() {
@@ -157,69 +161,30 @@ func (s *SyncLink) goFuncSend() {
 			}
 		}
 	}
-
 }
 
-func (s *SyncLink) goFuncSendDEPRECATED() {
-	var err error
-	var n int
-	var wireHelloMsg WireHelloMsg
-	var wireAckMsg WireAcksMsg
-	var wireDataMsg WireDataMsg
-
+// handles ACKs readings
+func (s *SyncLink) goFuncSendAncillary() {
+	var wireAcksMsg WireAcksMsg
 	for {
-		if s.State == DISCONNECTED {
-			if s.errCount > 1 {
-				time.Sleep(time.Duration(10*s.errCount) * time.Second) // trivial backoff of 10secs per errCount
-			}
-			s.conn, err = net.Dial("tcp", s.host)
-			if err != nil {
-				log.Printf("error connecting to host: %v, err: %v\n", s.host, err)
-				s.incError()
-			} else {
-				s.State = HANDSHAKING
-			}
-		} else if s.State == HANDSHAKING {
-			wireHelloMsg = WireHelloMsg{
-				Version:      WireVersion,
-				Message:      WireHELLO,
-				StreamUniqId: s.Stream.GetUniqId(),
-			}
-			err = binary.Write(s.conn, binary.LittleEndian, &wireHelloMsg)
-			if err != nil {
-				//s.disconnectAndIncErr()
-			} else {
-				err = binary.Read(s.conn, binary.LittleEndian, &wireAckMsg)
-				if err != nil {
-					//s.disconnectAndIncErr()
-				} else {
-					if wireAckMsg.Version != WireVersion || wireAckMsg.Message != WireNACKN {
-						//s.disconnectAndIncErr()
-					} else {
-						s.Stream.SetSubRPos(s.subId, wireAckMsg.AbsPos)
-						s.State = PUSHING
-					}
-				}
-			}
-		} else if s.State == PUSHING {
-			elem, readAbsPos, closed := s.Stream.PullBySubId(s.subId, api.WaitingUpto1s)
-			bytes := elem.([]byte)
-			if !closed {
-				wireDataMsg = WireDataMsg{
-					Version: WireVersion,
-					Message: WireDATA,
-					AbsPos:  readAbsPos,
-					Length:  uint16(len(bytes)),
-				}
-				err = binary.Write(s.conn, binary.LittleEndian, &wireDataMsg)
-				if err != nil {
-					//s.disconnectAndIncErr()
-				} else {
-					if n, err = s.conn.Write(bytes); n != len(bytes) || err != nil {
-						//s.disconnectAndIncErr()
-					}
-				}
-			}
+		if s.Closed() {
+			return
+		}
+		// it will be mostly blocked here
+		if s.handleError(binary.Read(s.conn, binary.LittleEndian, &wireAcksMsg)) {
+			return
+		}
+		if wireAcksMsg.Version != WireVersion {
+			s.handleError(errors.New(fmt.Sprintf("received a message of unknown wire version: %v", wireAcksMsg.Version)))
+		}
+		if wireAcksMsg.Message != WireNACKN && wireAcksMsg.Message != WireACK {
+			s.handleError(errors.New(fmt.Sprintf("received an unrecognised message type: %v", wireAcksMsg.Message)))
+		}
+		if wireAcksMsg.Message == WireNACKN {
+			s.Stream.SetSubRPos(s.subId, wireAcksMsg.AbsPos)
+		}
+		if wireAcksMsg.Message == WireACK {
+			s.Stream.SetRepHWM(s.repId, wireAcksMsg.AbsPos)
 		}
 	}
 }

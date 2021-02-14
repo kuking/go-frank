@@ -80,29 +80,88 @@ func TestSyncLink_GoFuncSend_SendsStream(t *testing.T) {
 	initialHandShakeDone(ctx)
 	feedStream(ctx.sendStream, 100)
 
-	var wireDataMsg WireDataMsg
-	buf := make([]byte, 10)
 	prevAbsPos := uint64(0)
 	for i := 0; i < 100; i++ {
-		if err := binary.Read(ctx.recvPipe, binary.LittleEndian, &wireDataMsg); err != nil {
-			t.Fatal(err)
+		wireDataMsg := verifyReceivesDataMessage(i, ctx)
+		if wireDataMsg.AbsPos < prevAbsPos {
+			t.Fatal("prevAbsPos does not seems to get updated")
 		}
-		if wireDataMsg.Version != WireVersion ||
-			wireDataMsg.Message != WireDATA ||
-			wireDataMsg.AbsPos < prevAbsPos ||
-			wireDataMsg.Length != 8 { // fixed, it is an uint64
-			t.Fatal("WireDataMsg does not seems correct")
-		}
-		if n, err := ctx.recvPipe.Read(buf[0:8]); n != 8 || err != nil {
-			t.Fatal(err)
-		}
-		if binary.LittleEndian.Uint64(buf[0:8]) != uint64(i) {
-			t.Fatal("value is not correct")
-		}
+		prevAbsPos = wireDataMsg.AbsPos
 	}
 
 	closeAndVerify(sl, ctx)
 }
+
+func TestSyncLink_GoFuncSend_ProcessesNACKs(t *testing.T) {
+	ctx := setup(t)
+	defer teardown(ctx)
+	sl := ctx.repl.NewSyncLinkSend(ctx.sendPipe, "host:1234", ctx.sendStream, "repl-1")
+	go sl.goFuncSend()
+
+	initialHandShakeDone(ctx)
+
+	feedStream(ctx.sendStream, 100)
+	var replayAbsPos uint64
+	for i := 0; i < 100; i++ {
+		wireDataMsg := verifyReceivesDataMessage(i, ctx)
+		if i == 50 {
+			replayAbsPos = wireDataMsg.AbsPos
+		}
+	}
+
+	wireAcksMsg := WireAcksMsg{
+		Version: WireVersion,
+		Message: WireNACKN,
+		AbsPos:  replayAbsPos,
+	}
+	if err := binary.Write(ctx.recvPipe, binary.LittleEndian, &wireAcksMsg); err != nil {
+		t.Fatal(err)
+	}
+	// now, 49 messages should be received
+	for i := 50; i < 100; i++ {
+		verifyReceivesDataMessage(i, ctx)
+	}
+
+	closeAndVerify(sl, ctx)
+}
+
+func TestSyncLink_GoFuncSend_ProcessesACKs(t *testing.T) {
+	ctx := setup(t)
+	defer teardown(ctx)
+	sl := ctx.repl.NewSyncLinkSend(ctx.sendPipe, "host:1234", ctx.sendStream, "repl-1")
+	go sl.goFuncSend()
+
+	initialHandShakeDone(ctx)
+
+	var wireDataMsg *WireDataMsg
+	feedStream(ctx.sendStream, 100)
+	for i := 0; i < 100; i++ {
+		wireDataMsg = verifyReceivesDataMessage(i, ctx)
+	}
+
+	if wireDataMsg == nil {
+		t.Fatal("impossible, but to keep the linter happy")
+	}
+
+	// HWM for replicator Id is 0
+	assertWait(func() bool { return sl.Stream.GetRepHWM(sl.repId) == 0 }, 100*time.Millisecond, t)
+
+	wireAcksMsg := WireAcksMsg{
+		Version: WireVersion,
+		Message: WireACK,
+		AbsPos:  wireDataMsg.AbsPos,
+	}
+	if err := binary.Write(ctx.recvPipe, binary.LittleEndian, &wireAcksMsg); err != nil {
+		t.Fatal(err)
+	}
+
+	// HWM for replicator Id it is now wireDataMsg.AbsPos (what we sent in the wireAckMsg)
+	assertWait(func() bool { return sl.Stream.GetRepHWM(sl.repId) == wireDataMsg.AbsPos }, 500*time.Millisecond, t)
+
+	closeAndVerify(sl, ctx)
+}
+
+// -------------------------------------------------------------------------------------------------------------------
 
 func feedStream(stream *persistent.MmapStream, qty int) {
 	for i := 0; i < qty; i++ {
@@ -112,7 +171,25 @@ func feedStream(stream *persistent.MmapStream, qty int) {
 	}
 }
 
-// -------------------------------------------------------------------------------------------------------------------
+func verifyReceivesDataMessage(n int, ctx *context) *WireDataMsg {
+	var wireDataMsg WireDataMsg
+	buf := make([]byte, 10)
+	if err := binary.Read(ctx.recvPipe, binary.LittleEndian, &wireDataMsg); err != nil {
+		ctx.t.Fatal(err)
+	}
+	if wireDataMsg.Version != WireVersion ||
+		wireDataMsg.Message != WireDATA ||
+		wireDataMsg.Length != 8 { // fixed, it is an uint64
+		ctx.t.Fatal("WireDataMsg does not seems correct")
+	}
+	if n, err := ctx.recvPipe.Read(buf[0:8]); n != 8 || err != nil {
+		ctx.t.Fatal(err)
+	}
+	if binary.LittleEndian.Uint64(buf[0:8]) != uint64(n) {
+		ctx.t.Fatal("value is not correct")
+	}
+	return &wireDataMsg
+}
 
 func initialHandShakeDone(ctx *context) {
 	var wireHelloMsg WireHelloMsg
