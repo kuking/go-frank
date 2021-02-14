@@ -184,7 +184,7 @@ func TestSyncLink_GoFuncRecv_DetectsClosedConnection(t *testing.T) {
 	assertClosedConnection(ctx)
 }
 
-func TestSyncLink_GoFuncRecv_ReceivesHello(t *testing.T) {
+func TestSyncLink_GoFuncRecv_ReceivesHelloAndStatus(t *testing.T) {
 	ctx := setup(t)
 	defer teardown(ctx)
 	sl := ctx.repl.NewSyncLinkRecv(ctx.recvPipe, "host:1234", ctx.prefix)
@@ -192,17 +192,33 @@ func TestSyncLink_GoFuncRecv_ReceivesHello(t *testing.T) {
 
 	assertWait("is connected", func() bool { return sl.State == CONNECTED }, 100*time.Millisecond, t)
 
-	WireHelloMsg := WireHelloMsg{
+	wireHelloMsg := WireHelloMsg{
 		Version:      WireVersion,
 		Message:      WireHELLO,
 		StreamUniqId: ctx.sendStream.GetUniqId(),
 		PartSize:     ctx.sendStream.GetPartSize(),
 		FirstPart:    ctx.sendStream.GetFirstPart(),
 	}
-	if err := binary.Write(ctx.sendPipe, binary.LittleEndian, &WireHelloMsg); err != nil {
+	if err := binary.Write(ctx.sendPipe, binary.LittleEndian, &wireHelloMsg); err != nil {
 		t.Fatal(err)
 	}
 	assertWait("is pulling", func() bool { return sl.State == PULLING }, 500*time.Millisecond, t)
+
+	if sl.Stream.IsClosed() {
+		t.Fatal("Stream should not be closed!")
+	}
+	wireStatusMsg := WireStatusMsg{
+		Version:    WireVersion,
+		Message:    WireSTATUS,
+		FirstPart:  ctx.sendStream.GetFirstPart(),
+		PartsCount: ctx.sendStream.GetPartsCount(),
+		Closed:     1, // yes purposely closed to tell it happened
+	}
+	if err := binary.Write(ctx.sendPipe, binary.LittleEndian, &wireStatusMsg); err != nil {
+		t.Fatal(err)
+	}
+
+	assertWait("stream closed as directed by status", func() bool { return sl.Stream.IsClosed() }, 500*time.Millisecond, t)
 
 	forceCloseAndVerify(sl, ctx)
 }
