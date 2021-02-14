@@ -33,7 +33,7 @@ func MmapStreamCreate(baseFilename string, partSize uint64, serialiser serialisa
 	if partSize < 64*1024 {
 		return nil, errors.New("part file should be at least 64k")
 	}
-	rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().UnixNano())
 	fdfPath := baseFilename + ".frank"
 	if err = mmapInit(fdfPath, mmapStreamHeaderSize); err != nil {
 		return nil, err
