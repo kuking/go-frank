@@ -193,6 +193,8 @@ func (s *MmapStream) Feed(elem interface{}) {
 	}
 }
 
+// TODO: this could return an []byte pointer to the mmap, so no copy;
+// TODO: needs to differentiate between timeout and closed stream, to different things
 func (s *MmapStream) PullBySubId(subId int, waitApproach api.WaitApproach) (elem interface{}, readAbsPos uint64, closed bool) {
 	var totalNsWait int64
 	for i := 0; ; i++ {

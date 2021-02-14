@@ -88,6 +88,16 @@ func (s *MmapStream) SetSubRPos(subId int, absPos uint64) {
 	atomic.StoreUint64(&s.descriptor.SubRPos[subId], absPos)
 }
 
+// Gets Replica HighWaterMark
+func (s *MmapStream) GetRepHWM(repId int) uint64 {
+	return atomic.LoadUint64(&s.descriptor.RepHWMPos[repId])
+}
+
+// Sets Replica HighWaterMark
+func (s *MmapStream) SetRepHWM(repId int, HWM uint64) {
+	atomic.StoreUint64(&s.descriptor.RepHWMPos[repId], HWM)
+}
+
 // Gets Writer Position
 func (s *MmapStream) WritePos() uint64 {
 	return atomic.LoadUint64(&s.descriptor.Write)
@@ -100,4 +110,16 @@ func (s *MmapStream) SetWritePos(absPos uint64) {
 
 func (s *MmapStream) GetUniqId() uint64 {
 	return s.descriptor.UniqId
+}
+
+func (s *MmapStream) GetPartSize() uint64 {
+	return s.descriptor.PartSize
+}
+
+func (s *MmapStream) GetPartsCount() uint64 {
+	return atomic.LoadUint64(&s.descriptor.PartsCount)
+}
+
+func (s *MmapStream) GetFirstPart() uint64 {
+	return atomic.LoadUint64(&s.descriptor.FirstPart)
 }
