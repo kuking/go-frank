@@ -6,23 +6,22 @@ import (
 	"fmt"
 	"github.com/glycerine/rbuf"
 	"github.com/kuking/go-frank/api"
+	"github.com/kuking/go-frank/misc"
 	"github.com/kuking/go-frank/persistent"
 	"log"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
 type SyncState int
-type SyncDirection int
 
 const (
 	DISCONNECTED SyncState = iota
+	CONNECTED    SyncState = iota
 	HANDSHAKING  SyncState = iota
 	PULLING      SyncState = iota
 	PUSHING      SyncState = iota
-
-	SEND SyncDirection = iota
-	RECV SyncDirection = iota
 )
 
 type SyncLink struct {
@@ -38,6 +37,36 @@ type SyncLink struct {
 	repName  string
 	repId    int
 	subId    int
+	close    uint32
+}
+
+func (r *Replicator) NewSyncLinkSend(conn net.Conn, host string, stream *persistent.MmapStream, repName string) *SyncLink {
+	repId, subId, _ := stream.ReplicatorIdForNameHost(repName, host)
+	sl := &SyncLink{
+		repl:     r,
+		errT0:    time.Time{},
+		errCount: 0,
+		conn:     conn,
+		host:     host,
+		rBuf:     nil,
+		buf:      nil,
+		State:    CONNECTED,
+		Stream:   stream,
+		repName:  repName,
+		repId:    repId,
+		subId:    subId,
+		close:    0,
+	}
+	r.addSyncLink(sl)
+	return sl
+}
+
+func (s *SyncLink) Close() {
+	atomic.StoreUint32(&s.close, 1)
+}
+
+func (s *SyncLink) Closed() bool {
+	return atomic.LoadUint32(&s.close) > 0
 }
 
 func (s *SyncLink) incError() {
@@ -55,13 +84,83 @@ func (s *SyncLink) resetError() {
 	s.errCount = 0
 }
 
-func (s *SyncLink) disconnectAndIncErr() {
-	_ = s.conn.Close()
+func (s *SyncLink) handleError(err error) bool {
+	if err == nil {
+		return false
+	}
+	log.Println(err)
 	s.incError()
+	_ = s.conn.Close()
 	s.State = DISCONNECTED
+	return true
 }
 
 func (s *SyncLink) goFuncSend() {
+	var n int
+	var err error
+	var wireHelloMsg WireHelloMsg
+	var wireStatusMsg WireStatusMsg
+	var wireDataMsg WireDataMsg
+
+	for {
+		if s.Closed() {
+			_ = s.conn.Close()
+			s.State = DISCONNECTED
+			return
+		}
+		if s.State == CONNECTED {
+			wireHelloMsg = WireHelloMsg{
+				Version:      WireVersion,
+				Message:      WireHELLO,
+				StreamUniqId: s.Stream.GetUniqId(),
+				PartSize:     s.Stream.GetPartSize(),
+				FirstPart:    s.Stream.GetFirstPart(),
+			}
+			if s.handleError(binary.Write(s.conn, binary.LittleEndian, &wireHelloMsg)) {
+				return
+			}
+
+			wireStatusMsg = WireStatusMsg{
+				Version:    WireVersion,
+				Message:    WireSTATUS,
+				FirstPart:  s.Stream.GetFirstPart(),
+				PartsCount: s.Stream.GetPartsCount(),
+				Closed:     misc.AsUint32Bool(s.Stream.IsClosed()),
+			}
+			if s.handleError(binary.Write(s.conn, binary.LittleEndian, &wireStatusMsg)) {
+				return
+			}
+
+			s.Stream.SetSubRPos(s.subId, s.Stream.GetRepHWM(s.repId))
+
+			s.State = PUSHING
+		}
+		if s.State == PUSHING {
+			elem, absPos, closed := s.Stream.PullBySubId(s.subId, api.WaitingUpto10ms)
+			if !closed {
+				wireDataMsg = WireDataMsg{
+					Version: WireVersion,
+					Message: WireDATA,
+					AbsPos:  absPos,
+					Length:  uint16(len(elem.([]byte))),
+				}
+				if s.handleError(binary.Write(s.conn, binary.LittleEndian, &wireDataMsg)) {
+					return
+				}
+				n, err = s.conn.Write(elem.([]byte))
+				if n != len(elem.([]byte)) {
+					err = errors.New("short write")
+				}
+				if s.handleError(err) {
+					return
+				}
+			}
+		}
+	}
+
+}
+
+func (s *SyncLink) goFuncSendDEPRECATED() {
 	var err error
 	var n int
 	var wireHelloMsg WireHelloMsg
@@ -88,14 +187,14 @@ func (s *SyncLink) goFuncSend() {
 			}
 			err = binary.Write(s.conn, binary.LittleEndian, &wireHelloMsg)
 			if err != nil {
-				s.disconnectAndIncErr()
+				//s.disconnectAndIncErr()
 			} else {
 				err = binary.Read(s.conn, binary.LittleEndian, &wireAckMsg)
 				if err != nil {
-					s.disconnectAndIncErr()
+					//s.disconnectAndIncErr()
 				} else {
 					if wireAckMsg.Version != WireVersion || wireAckMsg.Message != WireNACKN {
-						s.disconnectAndIncErr()
+						//s.disconnectAndIncErr()
 					} else {
 						s.Stream.SetSubRPos(s.subId, wireAckMsg.AbsPos)
 						s.State = PUSHING
@@ -114,10 +213,10 @@ func (s *SyncLink) goFuncSend() {
 				}
 				err = binary.Write(s.conn, binary.LittleEndian, &wireDataMsg)
 				if err != nil {
-					s.disconnectAndIncErr()
+					//s.disconnectAndIncErr()
 				} else {
 					if n, err = s.conn.Write(bytes); n != len(bytes) || err != nil {
-						s.disconnectAndIncErr()
+						//s.disconnectAndIncErr()
 					}
 				}
 			}

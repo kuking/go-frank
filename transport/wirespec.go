@@ -15,12 +15,12 @@ const (
 // Replication flow
 // ORIGIN      ->        REPLICA
 // send     WireHELLO    recv     - Sender, the one who initiates de connection sends hello
-// send     WireSTATUS   recv      - Persistent stream status
-// recv     WireNACKN    send      - Replica indicates from where to start to receive
-// recv     WireNACK1    send      - Replica might indicate to retransmit only one element
-// send     WireDATA     recv      - Replica receives one payload
-// recv     WireACK      send      - Replica informs Origin his confirmed high-water-mark
-// send     WireSTATUS   recv      - Persistent stream status update i.e. closed, parts quantity, etc.
+// send     WireSTATUS   recv     - Persistent stream status
+// recv     WireNACKN    send     - Replica indicates from where to start to receive
+// recv     WireNACK1    send     - Replica might indicate to retransmit only one element
+// send     WireDATA     recv     - Replica receives one payload
+// recv     WireACK      send     - Replica informs Origin his confirmed high-water-mark
+// send     WireSTATUS   recv     - Persistent stream status update i.e. closed, parts quantity, etc.
 
 type WireHelloMsg struct {
 	Version      byte // = WireVersion

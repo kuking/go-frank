@@ -15,12 +15,17 @@ type Replicator struct {
 	Close bool
 }
 
-
 func NewReplicator() *Replicator {
 	return &Replicator{
 		Links: make([]*SyncLink, 0),
 		Close: false,
 	}
+}
+
+func (r *Replicator) addSyncLink(link *SyncLink) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+	r.Links = append(r.Links, link)
 }
 
 func (r *Replicator) Send(stream *persistent.MmapStream, replicatorName string, host string) {
