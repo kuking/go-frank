@@ -9,3 +9,14 @@ func Reflected(val interface{}) reflect.Value {
 		return reflect.ValueOf(val)
 	}
 }
+
+func AsUint32Bool(value bool) uint32 {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+func Uint32Bool(value uint32) bool {
+	return value > 0
+}
