@@ -22,7 +22,7 @@ func TestSyncLink_GoFuncSend_Close(t *testing.T) {
 
 	sl.Close()
 
-	assertWait(func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
+	assertWait("is disconnected", func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
 	assertClosedConnection(ctx)
 }
 
@@ -33,7 +33,7 @@ func TestSyncLink_GoFuncSend_DetectsClosedConnection(t *testing.T) {
 	_ = ctx.recvPipe.Close()
 	go sl.goFuncSend()
 
-	assertWait(func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
+	assertWait("is disconnected", func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
 	assertClosedConnection(ctx)
 }
 
@@ -144,7 +144,7 @@ func TestSyncLink_GoFuncSend_ProcessesACKs(t *testing.T) {
 	}
 
 	// HWM for replicator Id is 0
-	assertWait(func() bool { return sl.Stream.GetRepHWM(sl.repId) == 0 }, 100*time.Millisecond, t)
+	assertWait("HWM is Zero", func() bool { return sl.Stream.GetRepHWM(sl.repId) == 0 }, 100*time.Millisecond, t)
 
 	wireAcksMsg := WireAcksMsg{
 		Version: WireVersion,
@@ -156,7 +156,7 @@ func TestSyncLink_GoFuncSend_ProcessesACKs(t *testing.T) {
 	}
 
 	// HWM for replicator Id it is now wireDataMsg.AbsPos (what we sent in the wireAckMsg)
-	assertWait(func() bool { return sl.Stream.GetRepHWM(sl.repId) == wireDataMsg.AbsPos }, 500*time.Millisecond, t)
+	assertWait("HWM is Update", func() bool { return sl.Stream.GetRepHWM(sl.repId) == wireDataMsg.AbsPos }, 500*time.Millisecond, t)
 
 	closeAndVerify(sl, ctx)
 }
@@ -169,7 +169,7 @@ func TestSyncLink_GoFuncRecv_Close(t *testing.T) {
 
 	sl.Close()
 
-	assertWait(func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
+	assertWait("is disconnected", func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
 	assertClosedConnection(ctx)
 }
 
@@ -180,8 +180,31 @@ func TestSyncLink_GoFuncRecv_DetectsClosedConnection(t *testing.T) {
 	_ = ctx.recvPipe.Close()
 	go sl.goFuncRecv()
 
-	assertWait(func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
+	assertWait("is disconnected", func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
 	assertClosedConnection(ctx)
+}
+
+func TestSyncLink_GoFuncRecv_ReceivesHello(t *testing.T) {
+	ctx := setup(t)
+	defer teardown(ctx)
+	sl := ctx.repl.NewSyncLinkRecv(ctx.recvPipe, "host:1234", ctx.prefix)
+	go sl.goFuncRecv()
+
+	assertWait("is connected", func() bool { return sl.State == CONNECTED }, 100*time.Millisecond, t)
+
+	WireHelloMsg := WireHelloMsg{
+		Version:      WireVersion,
+		Message:      WireHELLO,
+		StreamUniqId: ctx.sendStream.GetUniqId(),
+		PartSize:     ctx.sendStream.GetPartSize(),
+		FirstPart:    ctx.sendStream.GetFirstPart(),
+	}
+	if err := binary.Write(ctx.sendPipe, binary.LittleEndian, &WireHelloMsg); err != nil {
+		t.Fatal(err)
+	}
+	assertWait("is pulling", func() bool { return sl.State == PULLING }, 500*time.Millisecond, t)
+
+	forceCloseAndVerify(sl, ctx)
 }
 
 // -------------------------------------------------------------------------------------------------------------------
@@ -225,9 +248,15 @@ func initialHandShakeDone(ctx *context) {
 	}
 }
 
+// needed as Buffer Peek blocks
+func forceCloseAndVerify(sl *SyncLink, ctx *context) {
+	_ = sl.conn.Close()
+	closeAndVerify(sl, ctx)
+}
+
 func closeAndVerify(sl *SyncLink, ctx *context) {
 	sl.Close()
-	assertWait(func() bool { return sl.State == DISCONNECTED }, 500*time.Millisecond, ctx.t)
+	assertWait("is disconnected", func() bool { return sl.State == DISCONNECTED }, 500*time.Millisecond, ctx.t)
 	assertClosedConnection(ctx)
 }
 
@@ -297,14 +326,14 @@ func assertIsClosed(conn net.Conn, t *testing.T) {
 	}
 }
 
-func assertWait(expr func() bool, maxWait time.Duration, t *testing.T) {
+func assertWait(explanation string, expr func() bool, maxWait time.Duration, t *testing.T) {
 	t0 := time.Now()
 	for {
 		if expr() {
 			return
 		}
 		if time.Now().Sub(t0) > maxWait {
-			t.Fatalf("failed: expression did not become true after waiting %v.", maxWait)
+			t.Fatalf("failed waiting for: %v (for %v).", explanation, maxWait)
 		}
 		time.Sleep(time.Millisecond * 5)
 	}

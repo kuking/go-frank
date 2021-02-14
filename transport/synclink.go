@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-type SyncState int
+type SyncState int32
 
 const (
 	DISCONNECTED SyncState = iota
@@ -219,7 +219,6 @@ func (s *SyncLink) goFuncRecv() {
 			s.State = DISCONNECTED
 			return
 		}
-
 		bytes, err = conn.Peek(2)
 		if s.handleError(err) {
 			return
@@ -230,7 +229,7 @@ func (s *SyncLink) goFuncRecv() {
 		}
 		if bytes[1] == WireHELLO {
 			if s.State != CONNECTED {
-				s.handleError(errors.New(fmt.Sprintf("unexpected WireHELLO message")))
+				s.handleError(errors.New("unexpected WireHELLO message"))
 				return
 			}
 			if s.handleError(binary.Read(conn, binary.LittleEndian, &wireHelloMsg)) {
@@ -251,6 +250,10 @@ func (s *SyncLink) goFuncRecv() {
 			s.State = PULLING
 		}
 		if bytes[1] == WireSTATUS {
+			if s.State != PULLING {
+				s.handleError(errors.New("unexpected WireSTATUS message"))
+				return
+			}
 			if s.handleError(binary.Read(conn, binary.LittleEndian, &wireStatusMsg)) {
 				return
 			}
