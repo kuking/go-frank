@@ -47,6 +47,6 @@ type WireDataMsg struct {
 	Version byte   // = WireVersion
 	Message byte   // = WireDATA
 	AbsPos  uint64 // = Message
-	Length  uint64 // = Length -- from here on, it can be read directly into mmap
+	Length  uint16 // = Length -- from here on, it can be read directly into mmap
 	// Data    []byte
 }

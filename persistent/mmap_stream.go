@@ -193,30 +193,30 @@ func (s *MmapStream) Feed(elem interface{}) {
 	}
 }
 
-func (s *MmapStream) PullBySubId(subId int, waitApproach api.WaitApproach) (elem interface{}, ofsRead uint64, closed bool) {
+func (s *MmapStream) PullBySubId(subId int, waitApproach api.WaitApproach) (elem interface{}, readAbsPos uint64, closed bool) {
 	var totalNsWait int64
 	for i := 0; ; i++ {
-		ofsRead = atomic.LoadUint64(&s.descriptor.SubRPos[subId])
+		readAbsPos = atomic.LoadUint64(&s.descriptor.SubRPos[subId])
 		ofsWrite := atomic.LoadUint64(&s.descriptor.Write)
-		if ofsRead < ofsWrite {
+		if readAbsPos < ofsWrite {
 			var ofsNewRead uint64
-			partNo := ofsRead / s.descriptor.PartSize
+			partNo := readAbsPos / s.descriptor.PartSize
 			part := s.resolvePart(subId, partNo)
-			value, length := part.ReadAt(ofsRead)
+			value, length := part.ReadAt(readAbsPos)
 			if length == math.MaxUint16 {
 				partNo++
-				endSlack := s.descriptor.PartSize - (ofsRead % s.descriptor.PartSize)
+				endSlack := s.descriptor.PartSize - (readAbsPos % s.descriptor.PartSize)
 				part = s.resolvePart(subId, partNo)
-				value, length = part.ReadAt(ofsRead + endSlack)
-				ofsNewRead = ofsRead + endSlack + uint64(entryHeaderSize) + uint64(length)
+				value, length = part.ReadAt(readAbsPos + endSlack)
+				ofsNewRead = readAbsPos + endSlack + uint64(entryHeaderSize) + uint64(length)
 			} else {
-				ofsNewRead = ofsRead + uint64(entryHeaderSize) + uint64(length)
+				ofsNewRead = readAbsPos + uint64(entryHeaderSize) + uint64(length)
 			}
-			if atomic.CompareAndSwapUint64(&s.descriptor.SubRPos[subId], ofsRead, ofsNewRead) {
-				return value, ofsRead, false
+			if atomic.CompareAndSwapUint64(&s.descriptor.SubRPos[subId], readAbsPos, ofsNewRead) {
+				return value, readAbsPos, false
 			}
 		} else if s.IsClosed() {
-			return nil, ofsRead, true
+			return nil, readAbsPos, true
 		}
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond)
@@ -224,7 +224,7 @@ func (s *MmapStream) PullBySubId(subId int, waitApproach api.WaitApproach) (elem
 		if waitApproach == api.UntilClosed {
 			// just continue
 		} else if totalNsWait > int64(waitApproach) {
-			return nil, ofsRead, true
+			return nil, readAbsPos, true
 		}
 	}
 }

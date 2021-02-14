@@ -18,7 +18,7 @@ func doArgsParsing() bool {
 		fmt.Print(`Examples:
 
   $ ./frankr send replicator_name@streams/file-stream hostname:port
-  $ ./frankr accept streams/ bind_host:port optional_host 192.168.0.0/24 another_host
+  $ ./frankr accept streams/ bind_host:port optional_host 192.168.0.0/24
   $ ./frankr ps
   $ ./frankr top streams/
   $ ./frankr stop <pid>

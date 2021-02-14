@@ -97,3 +97,7 @@ func (s *MmapStream) WritePos() uint64 {
 func (s *MmapStream) SetWritePos(absPos uint64) {
 	atomic.StoreUint64(&s.descriptor.Write, absPos)
 }
+
+func (s *MmapStream) GetUniqId() uint64 {
+	return s.descriptor.UniqId
+}
