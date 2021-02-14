@@ -246,7 +246,13 @@ func (s *SyncLink) goFuncRecv() {
 				if s.handleError(err) {
 					return
 				}
+				s.Stream.SetReplicaOf(wireHelloMsg.StreamUniqId) // only on creation
 			}
+			if s.Stream.GetReplicaOf() != wireHelloMsg.StreamUniqId {
+				s.handleError(errors.New("local ReplicaOf UniqId is not what expected. inconsistency"))
+				return
+			}
+
 			s.State = PULLING
 		}
 		if bytes[1] == WireSTATUS {

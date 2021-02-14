@@ -112,6 +112,14 @@ func (s *MmapStream) GetUniqId() uint64 {
 	return s.descriptor.UniqId
 }
 
+func (s *MmapStream) GetReplicaOf() uint64 {
+	return s.descriptor.ReplicaOf
+}
+
+func (s *MmapStream) SetReplicaOf(uniqId uint64) {
+	s.descriptor.ReplicaOf = uniqId
+}
+
 func (s *MmapStream) GetPartSize() uint64 {
 	return s.descriptor.PartSize
 }

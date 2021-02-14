@@ -3,6 +3,7 @@ package transport
 import (
 	"encoding/binary"
 	"fmt"
+	"github.com/kuking/go-frank/api"
 	"github.com/kuking/go-frank/misc"
 	"github.com/kuking/go-frank/persistent"
 	"github.com/kuking/go-frank/serialisation"
@@ -77,7 +78,7 @@ func TestSyncLink_GoFuncSend_SendsStream(t *testing.T) {
 	sl := ctx.repl.NewSyncLinkSend(ctx.sendPipe, "host:1234", ctx.sendStream, "repl-1")
 	go sl.goFuncSend()
 
-	initialHandShakeDone(ctx)
+	initialSendHandShakeDone(ctx)
 	feedStream(ctx.sendStream, 100)
 
 	prevAbsPos := uint64(0)
@@ -98,7 +99,7 @@ func TestSyncLink_GoFuncSend_ProcessesNACKs(t *testing.T) {
 	sl := ctx.repl.NewSyncLinkSend(ctx.sendPipe, "host:1234", ctx.sendStream, "repl-1")
 	go sl.goFuncSend()
 
-	initialHandShakeDone(ctx)
+	initialSendHandShakeDone(ctx)
 
 	feedStream(ctx.sendStream, 100)
 	var replayAbsPos uint64
@@ -131,7 +132,7 @@ func TestSyncLink_GoFuncSend_ProcessesACKs(t *testing.T) {
 	sl := ctx.repl.NewSyncLinkSend(ctx.sendPipe, "host:1234", ctx.sendStream, "repl-1")
 	go sl.goFuncSend()
 
-	initialHandShakeDone(ctx)
+	initialSendHandShakeDone(ctx)
 
 	var wireDataMsg *WireDataMsg
 	feedStream(ctx.sendStream, 100)
@@ -204,6 +205,13 @@ func TestSyncLink_GoFuncRecv_ReceivesHelloAndStatus(t *testing.T) {
 	}
 	assertWait("is pulling", func() bool { return sl.State == PULLING }, 500*time.Millisecond, t)
 
+	if ctx.sendStream.GetUniqId() == sl.Stream.GetUniqId() {
+		t.Fatal("source and replica should have differnet uniqIds")
+	}
+	if ctx.sendStream.GetUniqId() != sl.Stream.GetReplicaOf() {
+		t.Fatal("created stream should hold 'replicaOf' the source")
+	}
+
 	if sl.Stream.IsClosed() {
 		t.Fatal("Stream should not be closed!")
 	}
@@ -253,13 +261,36 @@ func verifyReceivesDataMessage(n int, ctx *context) *WireDataMsg {
 	return &wireDataMsg
 }
 
-func initialHandShakeDone(ctx *context) {
+func initialSendHandShakeDone(ctx *context) {
 	var wireHelloMsg WireHelloMsg
 	if err := binary.Read(ctx.recvPipe, binary.LittleEndian, &wireHelloMsg); err != nil {
 		ctx.t.Fatal(err)
 	}
 	var wireStatusMsg WireStatusMsg
 	if err := binary.Read(ctx.recvPipe, binary.LittleEndian, &wireStatusMsg); err != nil {
+		ctx.t.Fatal(err)
+	}
+}
+
+func initialRecvHandShakeDone(ctx *context) {
+	wireHelloMsg := WireHelloMsg{
+		Version:      WireVersion,
+		Message:      WireHELLO,
+		StreamUniqId: ctx.sendStream.GetUniqId(),
+		PartSize:     ctx.sendStream.GetPartSize(),
+		FirstPart:    ctx.sendStream.GetFirstPart(),
+	}
+	if err := binary.Write(ctx.sendPipe, binary.LittleEndian, &wireHelloMsg); err != nil {
+		ctx.t.Fatal(err)
+	}
+	wireStatusMsg := WireStatusMsg{
+		Version:    WireVersion,
+		Message:    WireSTATUS,
+		FirstPart:  ctx.sendStream.GetFirstPart(),
+		PartsCount: ctx.sendStream.GetPartsCount(),
+		Closed:     0,
+	}
+	if err := binary.Write(ctx.sendPipe, binary.LittleEndian, &wireStatusMsg); err != nil {
 		ctx.t.Fatal(err)
 	}
 }
