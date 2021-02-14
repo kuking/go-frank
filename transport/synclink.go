@@ -4,12 +4,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/glycerine/rbuf"
 	"github.com/kuking/go-frank/api"
 	"github.com/kuking/go-frank/misc"
 	"github.com/kuking/go-frank/persistent"
+	"github.com/kuking/go-frank/serialisation"
 	"log"
 	"net"
+	"path"
 	"sync/atomic"
 	"time"
 )
@@ -19,7 +20,6 @@ type SyncState int
 const (
 	DISCONNECTED SyncState = iota
 	CONNECTED    SyncState = iota
-	HANDSHAKING  SyncState = iota
 	PULLING      SyncState = iota
 	PUSHING      SyncState = iota
 )
@@ -30,9 +30,8 @@ type SyncLink struct {
 	errCount int
 	conn     net.Conn
 	host     string
-	rBuf     *rbuf.FixedSizeRingBuf
-	buf      []byte
 	State    SyncState
+	basePath string
 	Stream   *persistent.MmapStream
 	repName  string
 	repId    int
@@ -48,13 +47,31 @@ func (r *Replicator) NewSyncLinkSend(conn net.Conn, host string, stream *persist
 		errCount: 0,
 		conn:     conn,
 		host:     host,
-		rBuf:     nil,
-		buf:      nil,
 		State:    CONNECTED,
+		basePath: "",
 		Stream:   stream,
 		repName:  repName,
 		repId:    repId,
 		subId:    subId,
+		close:    0,
+	}
+	r.addSyncLink(sl)
+	return sl
+}
+
+func (r *Replicator) NewSyncLinkRecv(conn net.Conn, host string, basePath string) *SyncLink {
+	sl := &SyncLink{
+		repl:     r,
+		errT0:    time.Time{},
+		errCount: 0,
+		conn:     conn,
+		host:     host,
+		State:    CONNECTED,
+		basePath: basePath,
+		Stream:   nil,
+		repName:  "",
+		repId:    0,
+		subId:    0,
 		close:    0,
 	}
 	r.addSyncLink(sl)
@@ -88,7 +105,7 @@ func (s *SyncLink) handleError(err error) bool {
 	if err == nil {
 		return false
 	}
-	if s.State != DISCONNECTED { // so it does not fails when we know it will fail
+	if s.State != DISCONNECTED { // so it does not logs extra errors I suppose ... ?
 		log.Println(err)
 	}
 	s.incError()
@@ -190,59 +207,64 @@ func (s *SyncLink) goFuncSendAncillary() {
 }
 
 func (s *SyncLink) goFuncRecv() {
-
-}
-
-func (s *SyncLink) Handle() {
-
-	var n int
-	var m int
+	var bytes []byte
 	var err error
-	for {
-		n, err = s.conn.Read(s.buf)
-		if err != nil {
-			log.Printf("failed to read from: %v, err: %v\n", s.conn.RemoteAddr(), err)
-			break
-		}
-		m, err = s.rBuf.Write(s.buf[0:n])
-		if err != nil || n != m {
-			log.Printf("failed to write into ring-buffer from: %v, err: %v\n", s.conn.RemoteAddr(), err)
-			break
-		}
-		err = s.seekAndHandleMessage()
-		if err != nil {
-			log.Printf("failed to handle message from: %v, err: %v\n", s.conn.RemoteAddr(), err)
-			break
-		}
-	}
-	err = s.conn.Close()
-	if err != nil {
-		log.Printf("failed to close socket, err: %v\n", err)
-	}
-}
+	conn := NewBufferedConnSize(s.conn, 64)
+	var wireHelloMsg WireHelloMsg
+	var wireStatusMsg WireStatusMsg
 
-func (s *SyncLink) seekAndHandleMessage() error {
-	n, err := s.rBuf.ReadWithoutAdvance(s.buf[0:2])
-	if n != 2 || err != nil {
-		return nil // assumes buffer not complete, so no error
+	for {
+		if s.Closed() {
+			_ = conn.Close()
+			s.State = DISCONNECTED
+			return
+		}
+
+		bytes, err = conn.Peek(2)
+		if s.handleError(err) {
+			return
+		}
+		if bytes[0] != WireVersion {
+			s.handleError(errors.New(fmt.Sprintf("invalid wire version: %v", bytes[0])))
+			return
+		}
+		if bytes[1] == WireHELLO {
+			if s.State != CONNECTED {
+				s.handleError(errors.New(fmt.Sprintf("unexpected WireHELLO message")))
+				return
+			}
+			if s.handleError(binary.Read(conn, binary.LittleEndian, &wireHelloMsg)) {
+				return
+			}
+			if wireHelloMsg.Message != WireHELLO {
+				s.handleError(errors.New("invalid WireHELLO message"))
+				return
+			}
+			baseName := path.Join(s.basePath, fmt.Sprintf("%x", wireHelloMsg.StreamUniqId))
+			s.Stream, err = persistent.MmapStreamOpen(baseName, serialisation.ByteArraySerialiser{})
+			if err != nil {
+				s.Stream, err = persistent.MmapStreamCreate(baseName, wireHelloMsg.PartSize, serialisation.ByteArraySerialiser{})
+				if s.handleError(err) {
+					return
+				}
+			}
+			s.State = PULLING
+		}
+		if bytes[1] == WireSTATUS {
+			if s.handleError(binary.Read(conn, binary.LittleEndian, &wireStatusMsg)) {
+				return
+			}
+			if misc.Uint32Bool(wireStatusMsg.Closed) {
+				s.Stream.Close()
+			}
+		}
+		if bytes[1] == WireDATA {
+			if s.State != PULLING {
+				s.handleError(errors.New("unexpected WireDATA message"))
+				return
+			}
+
+		}
+
 	}
-	if s.buf[0] != WireVersion {
-		return errors.New(fmt.Sprintf("unknown wire version %v", s.buf[0]))
-	}
-	if s.buf[1] == WireHELLO {
-		// handle hello
-	} else if s.buf[1] == WireSTATUS {
-		// handle wireSTATUS
-	} else if s.buf[1] == WireACK {
-		// handle ACK
-	} else if s.buf[1] == WireNACK1 {
-		// handle NACK1
-	} else if s.buf[1] == WireNACKN {
-		// handle WireNACKN
-	} else if s.buf[1] == WireDATA {
-		// handle WireDATA
-	} else {
-		return errors.New(fmt.Sprintf("unknown message %v", s.buf[1]))
-	}
-	return nil
 }

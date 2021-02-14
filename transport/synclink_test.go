@@ -23,7 +23,7 @@ func TestSyncLink_GoFuncSend_Close(t *testing.T) {
 	sl.Close()
 
 	assertWait(func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
-	assertIsClosed(ctx.sendPipe, t)
+	assertClosedConnection(ctx)
 }
 
 func TestSyncLink_GoFuncSend_DetectsClosedConnection(t *testing.T) {
@@ -34,7 +34,7 @@ func TestSyncLink_GoFuncSend_DetectsClosedConnection(t *testing.T) {
 	go sl.goFuncSend()
 
 	assertWait(func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
-	assertIsClosed(ctx.sendPipe, t)
+	assertClosedConnection(ctx)
 }
 
 func TestSyncLink_GoFuncSend_DoHelloAndStatus(t *testing.T) {
@@ -161,6 +161,29 @@ func TestSyncLink_GoFuncSend_ProcessesACKs(t *testing.T) {
 	closeAndVerify(sl, ctx)
 }
 
+func TestSyncLink_GoFuncRecv_Close(t *testing.T) {
+	ctx := setup(t)
+	defer teardown(ctx)
+	sl := ctx.repl.NewSyncLinkRecv(ctx.recvPipe, "host:1234", ctx.prefix)
+	go sl.goFuncRecv()
+
+	sl.Close()
+
+	assertWait(func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
+	assertClosedConnection(ctx)
+}
+
+func TestSyncLink_GoFuncRecv_DetectsClosedConnection(t *testing.T) {
+	ctx := setup(t)
+	defer teardown(ctx)
+	sl := ctx.repl.NewSyncLinkRecv(ctx.recvPipe, "host:1234", ctx.prefix)
+	_ = ctx.recvPipe.Close()
+	go sl.goFuncRecv()
+
+	assertWait(func() bool { return sl.State == DISCONNECTED }, 100*time.Millisecond, t)
+	assertClosedConnection(ctx)
+}
+
 // -------------------------------------------------------------------------------------------------------------------
 
 func feedStream(stream *persistent.MmapStream, qty int) {
@@ -205,9 +228,7 @@ func initialHandShakeDone(ctx *context) {
 func closeAndVerify(sl *SyncLink, ctx *context) {
 	sl.Close()
 	assertWait(func() bool { return sl.State == DISCONNECTED }, 500*time.Millisecond, ctx.t)
-	assertIsClosed(ctx.sendPipe, ctx.t)
-	assertIsClosed(ctx.recvPipe, ctx.t)
-
+	assertClosedConnection(ctx)
 }
 
 // -------------------------------------------------------------------------------------------------------------------
@@ -256,6 +277,11 @@ func teardown(ctx *context) {
 	}
 	_ = ctx.sendPipe.Close()
 	_ = ctx.recvPipe.Close()
+}
+
+func assertClosedConnection(ctx *context) {
+	assertIsClosed(ctx.sendPipe, ctx.t)
+	assertIsClosed(ctx.recvPipe, ctx.t)
 }
 
 func assertIsClosed(conn net.Conn, t *testing.T) {
