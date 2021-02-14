@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"github.com/kuking/go-frank/api"
@@ -231,6 +232,44 @@ func TestSyncLink_GoFuncRecv_ReceivesHelloAndStatus(t *testing.T) {
 	forceCloseAndVerify(sl, ctx)
 }
 
+func TestSyncLink_GoFuncRecv_ReceivesData(t *testing.T) {
+	ctx := setup(t)
+	defer teardown(ctx)
+	sl := ctx.repl.NewSyncLinkRecv(ctx.recvPipe, "host:1234", ctx.prefix)
+	go sl.goFuncRecv()
+
+	initialRecvHandShakeDone(ctx)
+
+	feedStream(ctx.sendStream, 100) // because it is easy to obtain correct AbsPos, etc.
+	subId := ctx.sendStream.SubscriberIdForName("sub1")
+	lastAbsPos := uint64(0)
+	for {
+		elem, absPos, closed := ctx.sendStream.PullBySubId(subId, api.UntilNoMoreData)
+		if closed {
+			break
+		}
+		elemB := elem.([]byte)
+		wireDataMsg := WireDataMsg{
+			Version: WireVersion,
+			Message: WireDATA,
+			AbsPos:  absPos,
+			Length:  uint16(len(elemB)),
+		}
+		if err := binary.Write(ctx.sendPipe, binary.LittleEndian, &wireDataMsg); err != nil {
+			t.Fatal(err)
+		}
+		if n, err := ctx.sendPipe.Write(elemB); n != len(elemB) || err != nil {
+			t.Fatal()
+		}
+		lastAbsPos = absPos
+	}
+
+	assertEqualStreams(ctx.sendStream, sl.Stream, ctx)
+	assertWait("write > lastAbsPos", func() bool { return lastAbsPos < sl.Stream.WritePos() }, 500*time.Millisecond, t)
+
+	forceCloseAndVerify(sl, ctx)
+}
+
 // -------------------------------------------------------------------------------------------------------------------
 
 func feedStream(stream *persistent.MmapStream, qty int) {
@@ -292,6 +331,27 @@ func initialRecvHandShakeDone(ctx *context) {
 	}
 	if err := binary.Write(ctx.sendPipe, binary.LittleEndian, &wireStatusMsg); err != nil {
 		ctx.t.Fatal(err)
+	}
+}
+
+func assertEqualStreams(left *persistent.MmapStream, right *persistent.MmapStream, ctx *context) {
+	leftSubId := left.SubscriberIdForName("left-subscriber")
+	rightSubId := right.SubscriberIdForName("right-subscriber")
+	for {
+		leftElem, leftAbsPos, leftClosed := left.PullBySubId(leftSubId, api.UntilNoMoreData)
+		rightElem, rightAbsPos, rightClosed := right.PullBySubId(rightSubId, api.UntilNoMoreData)
+		if leftClosed && rightClosed {
+			return // happy
+		}
+		if leftClosed || rightClosed {
+			ctx.t.Fatal("streams have different quantity of elements")
+		}
+		if leftAbsPos != rightAbsPos {
+			ctx.t.Fatal("streams got un-synchronised with AbsPos")
+		}
+		if !bytes.Equal(leftElem.([]byte), rightElem.([]byte)) {
+			ctx.t.Fatal("elements are not equal")
+		}
 	}
 }
 

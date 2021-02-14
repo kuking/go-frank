@@ -208,10 +208,13 @@ func (s *SyncLink) goFuncSendAncillary() {
 
 func (s *SyncLink) goFuncRecv() {
 	var bytes []byte
+	var n int
 	var err error
 	conn := NewBufferedConnSize(s.conn, 64)
 	var wireHelloMsg WireHelloMsg
 	var wireStatusMsg WireStatusMsg
+	var wireDataMsg WireDataMsg
+	var buffer []byte = make([]byte, 65535) // max size
 
 	for {
 		if s.Closed() {
@@ -272,7 +275,22 @@ func (s *SyncLink) goFuncRecv() {
 				s.handleError(errors.New("unexpected WireDATA message"))
 				return
 			}
-
+			if s.handleError(binary.Read(conn, binary.LittleEndian, &wireDataMsg)) {
+				return
+			}
+			if wireDataMsg.Message != WireDATA {
+				s.handleError(errors.New("invalid WireDATA message"))
+				return
+			}
+			if n, err = conn.Read(buffer[0:wireDataMsg.Length]); n != int(wireDataMsg.Length) || err != nil {
+				s.handleError(err)
+				return
+			}
+			if s.Stream.WritePos() != wireDataMsg.AbsPos {
+				//TODO: NACK issues
+			} else {
+				s.Stream.Feed(buffer[0:wireDataMsg.Length])
+			}
 		}
 
 	}
