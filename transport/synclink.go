@@ -8,6 +8,7 @@ import (
 	"github.com/kuking/go-frank/misc"
 	"github.com/kuking/go-frank/persistent"
 	"github.com/kuking/go-frank/serialisation"
+	"io"
 	"log"
 	"net"
 	"path"
@@ -210,7 +211,7 @@ func (s *SyncLink) goFuncRecv() {
 	var bytes []byte
 	var n int
 	var err error
-	conn := NewBufferedConnSize(s.conn, 64)
+	conn := NewBufferedConnSize(s.conn, 4096)
 	var wireHelloMsg WireHelloMsg
 	var wireStatusMsg WireStatusMsg
 	var wireDataMsg WireDataMsg
@@ -261,7 +262,6 @@ func (s *SyncLink) goFuncRecv() {
 				s.handleError(errors.New("local ReplicaOf UniqId is not what expected. inconsistency"))
 				return
 			}
-
 			s.State = PULLING
 		}
 		if bytes[1] == WireSTATUS {
@@ -288,7 +288,7 @@ func (s *SyncLink) goFuncRecv() {
 				s.handleError(errors.New("invalid WireDATA message"))
 				return
 			}
-			if n, err = conn.Read(buffer[0:wireDataMsg.Length]); n != int(wireDataMsg.Length) || err != nil {
+			if n, err = io.ReadFull(conn, buffer[0:wireDataMsg.Length]); n != int(wireDataMsg.Length) || err != nil {
 				s.handleError(err)
 				return
 			}
