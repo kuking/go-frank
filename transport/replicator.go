@@ -40,11 +40,23 @@ func (r *Replicator) houseKeeping() {
 }
 
 func (r *Replicator) WaitAll(exitOnZero bool) {
+	prevReadPos := map[uint64]uint64{}
+	prevWritePos := map[uint64]uint64{}
+
 	for {
 		r.houseKeeping()
 		time.Sleep(1 * time.Second)
 		for i, l := range r.Links {
-			fmt.Printf("[$%v = %v]\n", i, l)
+			uniqId := l.Stream.GetUniqId()
+			readPos := l.Stream.ReadSubRPos(l.subId)
+			writePos := l.Stream.WritePos()
+			if prevReadPos[uniqId] != 0 {
+				readMiB := float32((readPos - prevReadPos[uniqId]) / 1024.0 / 1024.0)
+				writeMiB := float32((writePos - prevWritePos[uniqId]) / 1024.0 / 1024.0)
+				fmt.Printf("[%v: R: %v (%2.2fMiB) W: %v (%2.2fMiB)]\n", i, readPos, readMiB, writePos, writeMiB)
+			}
+			prevReadPos[uniqId] = readPos
+			prevWritePos[uniqId] = writePos
 		}
 		if exitOnZero {
 			r.mutex.Lock()
