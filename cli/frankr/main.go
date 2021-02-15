@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/kuking/go-frank/persistent"
+	"github.com/kuking/go-frank/serialisation"
 	"github.com/kuking/go-frank/transport"
 	"log"
 	"os"
@@ -36,6 +38,17 @@ func doArgsParsing() bool {
 		basePath := parsed[1]
 		hostName := os.Args[3]
 		fmt.Println("so sending:", replName, "@", basePath, "->", hostName)
+		r := transport.NewReplicator()
+
+		stream, err := persistent.MmapStreamOpen(basePath, serialisation.ByteArraySerialiser{})
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = r.ConnectTCP(stream, replName, hostName)
+		if err != nil {
+			log.Fatal(err)
+		}
+		r.WaitAll(false)
 		return true
 	} else if len(os.Args) > 3 && os.Args[1] == "accept" {
 		basePath := os.Args[2]
@@ -48,12 +61,10 @@ func doArgsParsing() bool {
 			accepted = []string{"*"}
 		}
 
-		s := transport.Replicator{}
-		log.Printf("Accepting: %v; streams in: %v\n", binding, basePath)
-		if err := s.ListenTCP(binding); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println("so accepting connections at", binding, "for hosts:", accepted, "and replicating into:", basePath)
+		log.Printf("Accepting: %v; streams in: %v (accepting -not implemented- %v)\n", binding, basePath, accepted)
+		r := transport.NewReplicator()
+		go r.ListenTCP(binding, basePath)
+		r.WaitAll(false)
 		return true
 	} else if len(os.Args) == 2 && os.Args[1] == "ps" {
 		fmt.Println("so listing all the replication processes, just by name")
