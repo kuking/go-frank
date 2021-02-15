@@ -239,6 +239,7 @@ func TestSyncLink_GoFuncRecv_ReceivesData(t *testing.T) {
 	go sl.goFuncRecv()
 
 	initialRecvHandShakeDone(ctx)
+	assertAckRecv("initial ACK", 0, WireACK, ctx)
 
 	feedStream(ctx.sendStream, 100) // because it is easy to obtain correct AbsPos, etc.
 	subId := ctx.sendStream.SubscriberIdForName("sub1")
@@ -248,19 +249,7 @@ func TestSyncLink_GoFuncRecv_ReceivesData(t *testing.T) {
 		if closed {
 			break
 		}
-		elemB := elem.([]byte)
-		wireDataMsg := WireDataMsg{
-			Version: WireVersion,
-			Message: WireDATA,
-			AbsPos:  absPos,
-			Length:  uint16(len(elemB)),
-		}
-		if err := binary.Write(ctx.sendPipe, binary.LittleEndian, &wireDataMsg); err != nil {
-			t.Fatal(err)
-		}
-		if n, err := ctx.sendPipe.Write(elemB); n != len(elemB) || err != nil {
-			t.Fatal()
-		}
+		givenDataIsSent(elem, absPos, ctx)
 		lastAbsPos = absPos
 	}
 
@@ -269,6 +258,76 @@ func TestSyncLink_GoFuncRecv_ReceivesData(t *testing.T) {
 
 	forceCloseAndVerify(sl, ctx)
 }
+
+func TestSyncLink_GoFuncRecv_NACKN(t *testing.T) {
+	ctx := setup(t)
+	defer teardown(ctx)
+	sl := ctx.repl.NewSyncLinkRecv(ctx.recvPipe, "host:1234", ctx.prefix)
+	go sl.goFuncRecv()
+
+	initialRecvHandShakeDone(ctx)
+
+	assertAckRecv("initial ACK", 0, WireACK, ctx)
+
+	feedStream(ctx.sendStream, 100)
+	subId := ctx.sendStream.SubscriberIdForName("sub1")
+	var expAckPos uint64
+	for i := 0; i < 10; i++ {
+		elem, absPos, _ := ctx.sendStream.PullBySubId(subId, api.UntilNoMoreData)
+		if i > 2 && i < 5 { // lets skip message 3,4 -- so it will ask to retry from 2
+			if i == 3 {
+				expAckPos = absPos
+			}
+			continue
+		}
+		givenDataIsSent(elem, absPos, ctx)
+		if i == 5 {
+			// just after 5th, it will ask for 2nd pos again
+			//... and given it is the first NACK, it will come straight away
+			assertAckRecv("expected NACK", expAckPos, WireNACKN, ctx)
+		}
+	}
+
+	assertAckRecv("last ACK", expAckPos, WireACK, ctx)
+
+	forceCloseAndVerify(sl, ctx)
+}
+
+func assertAckRecv(explanation string, expAbsPos uint64, ackType byte, ctx *context) {
+	var wireAcksMsg WireAcksMsg
+	if err := binary.Read(ctx.sendPipe, binary.LittleEndian, &wireAcksMsg); err != nil {
+		ctx.t.Fatal("Unexpected read error while", explanation)
+	}
+	if wireAcksMsg.Version != WireVersion {
+		ctx.t.Fatal("Unexpected message, wire version", wireAcksMsg.Version, "while", explanation)
+	}
+
+	if wireAcksMsg.Message != ackType {
+		ctx.t.Fatal("Unexpected message: ", wireAcksMsg.Message, "while", explanation)
+	}
+	if wireAcksMsg.AbsPos != expAbsPos {
+		ctx.t.Fatal("unexpected ACK position, expected", expAbsPos, "got", wireAcksMsg.AbsPos, "while", explanation)
+	}
+}
+
+func givenDataIsSent(elem interface{}, absPos uint64, ctx *context) {
+	elemB := elem.([]byte)
+	wireDataMsg := WireDataMsg{
+		Version: WireVersion,
+		Message: WireDATA,
+		AbsPos:  absPos,
+		Length:  uint16(len(elemB)),
+	}
+	if err := binary.Write(ctx.sendPipe, binary.LittleEndian, &wireDataMsg); err != nil {
+		ctx.t.Fatal(err)
+	}
+	if n, err := ctx.sendPipe.Write(elemB); n != len(elemB) || err != nil {
+		ctx.t.Fatal()
+	}
+}
+
+// handles NACK
+// handles ACK
 
 // -------------------------------------------------------------------------------------------------------------------
 

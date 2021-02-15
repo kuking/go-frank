@@ -214,7 +214,13 @@ func (s *SyncLink) goFuncRecv() {
 	var wireHelloMsg WireHelloMsg
 	var wireStatusMsg WireStatusMsg
 	var wireDataMsg WireDataMsg
+	var wireAcksMsg WireAcksMsg
+
+	var lastNack time.Time
+	var nackFrequency = 1 * time.Second
 	var buffer []byte = make([]byte, 65535) // max size
+
+	go s.goFuncRecvAncillary(conn)
 
 	for {
 		if s.Closed() {
@@ -287,11 +293,61 @@ func (s *SyncLink) goFuncRecv() {
 				return
 			}
 			if s.Stream.WritePos() != wireDataMsg.AbsPos {
-				//TODO: NACK issues
+				var doIt bool
+				if lastNack, doIt = onceEvery(lastNack, nackFrequency); doIt {
+					wireAcksMsg = WireAcksMsg{
+						Version: WireVersion,
+						Message: WireNACKN,
+						AbsPos:  s.Stream.WritePos(),
+					}
+					if s.handleError(binary.Write(conn, binary.LittleEndian, &wireAcksMsg)) {
+						return
+					}
+					if s.handleError(conn.Flush()) {
+						return
+					}
+				}
 			} else {
 				s.Stream.Feed(buffer[0:wireDataMsg.Length])
 			}
 		}
 
+	}
+}
+
+func (s *SyncLink) goFuncRecvAncillary(conn BufferedConn) {
+	var wireAcksMsg WireAcksMsg
+	var lastAck time.Time
+	var ackFrequency = 1 * time.Second
+	for {
+		if s.Closed() {
+			return
+		}
+		if s.State == PULLING {
+			var doIt bool
+			if lastAck, doIt = onceEvery(lastAck, ackFrequency); doIt {
+				wireAcksMsg = WireAcksMsg{
+					Version: WireVersion,
+					Message: WireACK,
+					AbsPos:  s.Stream.WritePos(),
+				}
+				if s.handleError(binary.Write(conn, binary.LittleEndian, &wireAcksMsg)) {
+					return
+				}
+				if s.handleError(conn.Flush()) {
+					return
+				}
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
+func onceEvery(lastT time.Time, wait time.Duration) (newT time.Time, doIt bool) {
+	now := time.Now()
+	if now.Sub(lastT) > wait {
+		return now, true
+	} else {
+		return lastT, false
 	}
 }
