@@ -100,7 +100,7 @@ func (mp *mmapPart) ReadAt(absOfs uint64) (elem interface{}, elemLength uint16) 
 			t := time.Now()
 			t0 = &t
 		} else {
-			if time.Now().Sub(*t0).Milliseconds() > 10 {
+			if time.Now().Sub(*t0).Milliseconds() > 100 {
 				panic("implement marking dead element write") //TODO
 			}
 		}
