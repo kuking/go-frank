@@ -51,9 +51,10 @@ func (r *Replicator) WaitAll(exitOnZero bool) {
 			readPos := l.Stream.ReadSubRPos(l.subId)
 			writePos := l.Stream.WritePos()
 			if prevReadPos[uniqId] != 0 || prevWritePos[uniqId] != 0 {
+				readPct := float32(readPos) * 100.0 / float32(writePos)
 				readMiB := float32((readPos - prevReadPos[uniqId]) / 1024.0 / 1024.0)
 				writeMiB := float32((writePos - prevWritePos[uniqId]) / 1024.0 / 1024.0)
-				fmt.Printf("[%v: R: %v (%2.2fMiB) W: %v (%2.2fMiB)]\n", i, readPos, readMiB, writePos, writeMiB)
+				fmt.Printf("[%v: R: %v (%2.2fMiB) %2.2f%% W: %v (%2.2fMiB)]\n", i, readPos, readMiB, readPct, writePos, writeMiB)
 			}
 			prevReadPos[uniqId] = readPos
 			prevWritePos[uniqId] = writePos
