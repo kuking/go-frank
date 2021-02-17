@@ -48,7 +48,7 @@ func doArgsParsing() bool {
 		if err != nil {
 			log.Fatal(err)
 		}
-		r.WaitAll(false)
+		r.WaitAll(false, false)
 		return true
 	} else if len(os.Args) > 3 && os.Args[1] == "accept" {
 		basePath := os.Args[2]
@@ -64,7 +64,7 @@ func doArgsParsing() bool {
 		log.Printf("Accepting: %v; streams in: %v (accepting -not implemented- %v)\n", binding, basePath, accepted)
 		r := transport.NewReplicator()
 		go r.ListenTCP(binding, basePath)
-		r.WaitAll(false)
+		r.WaitAll(false, false)
 		return true
 	} else if len(os.Args) == 2 && os.Args[1] == "ps" {
 		fmt.Println("so listing all the replication processes, just by name")
@@ -92,8 +92,4 @@ func main() {
 	if !doArgsParsing() {
 		os.Exit(-1)
 	}
-
-	//s := transport.Replicator{}
-	//err := s.ListenTCP(":4500")
-	//fmt.Println(err)
 }
