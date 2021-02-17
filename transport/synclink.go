@@ -120,7 +120,9 @@ func (s *SyncLink) goFuncSend() {
 	var err error
 	var wireHelloMsg WireHelloMsg
 	var wireStatusMsg WireStatusMsg
-	var wireDataMsg WireDataMsg
+	var wireDataMsgNA WireDataMsgNA
+	wireDataMsgNA.SetVersion(WireVersion)
+	wireDataMsgNA.SetMessage(WireDATA)
 
 	go s.goFuncSendAncillary()
 
@@ -160,13 +162,9 @@ func (s *SyncLink) goFuncSend() {
 		if s.State == PUSHING {
 			elem, absPos, closed := s.Stream.PullBySubId(s.subId, api.WaitingUpto10ms)
 			if !closed {
-				wireDataMsg = WireDataMsg{
-					Version: WireVersion,
-					Message: WireDATA,
-					AbsPos:  absPos,
-					Length:  uint16(len(elem.([]byte))),
-				}
-				if s.handleError(binary.Write(s.conn, binary.LittleEndian, &wireDataMsg)) {
+				wireDataMsgNA.SetAbsPos(absPos)
+				wireDataMsgNA.SetLength(uint16(len(elem.([]byte))))
+				if s.handleError(wireDataMsgNA.Write(s.conn)) {
 					return
 				}
 				n, err = s.conn.Write(elem.([]byte))
@@ -214,7 +212,7 @@ func (s *SyncLink) goFuncRecv() {
 	conn := NewBufferedConnSize(s.conn, 4096)
 	var wireHelloMsg WireHelloMsg
 	var wireStatusMsg WireStatusMsg
-	var wireDataMsg WireDataMsg
+	var wireDataMsgNA WireDataMsgNA
 	var wireAcksMsg WireAcksMsg
 
 	var lastNack time.Time
@@ -281,18 +279,18 @@ func (s *SyncLink) goFuncRecv() {
 				s.handleError(errors.New("unexpected WireDATA message"))
 				return
 			}
-			if s.handleError(binary.Read(conn, binary.LittleEndian, &wireDataMsg)) {
+			if s.handleError(wireDataMsgNA.Read(conn)) {
 				return
 			}
-			if wireDataMsg.Message != WireDATA {
+			if wireDataMsgNA.Message() != WireDATA {
 				s.handleError(errors.New("invalid WireDATA message"))
 				return
 			}
-			if n, err = io.ReadFull(conn, buffer[0:wireDataMsg.Length]); n != int(wireDataMsg.Length) || err != nil {
+			if n, err = io.ReadFull(conn, buffer[0:wireDataMsgNA.Length()]); n != int(wireDataMsgNA.Length()) || err != nil {
 				s.handleError(err)
 				return
 			}
-			if s.Stream.WritePos() != wireDataMsg.AbsPos {
+			if s.Stream.WritePos() != wireDataMsgNA.AbsPos() {
 				var doIt bool
 				if lastNack, doIt = onceEvery(lastNack, nackFrequency); doIt {
 					wireAcksMsg = WireAcksMsg{
@@ -308,7 +306,7 @@ func (s *SyncLink) goFuncRecv() {
 					}
 				}
 			} else {
-				s.Stream.Feed(buffer[0:wireDataMsg.Length])
+				s.Stream.Feed(buffer[0:wireDataMsgNA.Length()])
 			}
 		}
 
