@@ -23,5 +23,5 @@ benchmark:
 	go test -run=Benchmark -bench=. ./benchmarks
 
 memory: clean
-	go tool compile "-m" stream.go # -S
+	go tool compile "-m" transport/wirespec_na.go # -S
 
