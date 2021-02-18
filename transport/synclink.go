@@ -12,6 +12,7 @@ import (
 	"log"
 	"net"
 	"path"
+	"runtime"
 	"sync/atomic"
 	"time"
 )
@@ -116,19 +117,21 @@ func (s *SyncLink) handleError(err error) bool {
 }
 
 func (s *SyncLink) goFuncSend() {
+	conn := NewBufferedConnSize(s.conn, 8192)
 	var n int
 	var err error
+	var loop int
 	var wireHelloMsg WireHelloMsg
 	var wireStatusMsg WireStatusMsg
 	var wireDataMsgNA WireDataMsgNA
 	wireDataMsgNA.SetVersion(WireVersion)
 	wireDataMsgNA.SetMessage(WireDATA)
 
-	go s.goFuncSendAncillary()
+	go s.goFuncSendAncillary(conn)
 
 	for {
 		if s.Closed() {
-			_ = s.conn.Close()
+			_ = conn.Close()
 			s.State = DISCONNECTED
 			return
 		}
@@ -140,7 +143,7 @@ func (s *SyncLink) goFuncSend() {
 				PartSize:     s.Stream.GetPartSize(),
 				FirstPart:    s.Stream.GetFirstPart(),
 			}
-			if s.handleError(binary.Write(s.conn, binary.LittleEndian, &wireHelloMsg)) {
+			if s.handleError(binary.Write(conn, binary.LittleEndian, &wireHelloMsg)) {
 				return
 			}
 
@@ -151,7 +154,10 @@ func (s *SyncLink) goFuncSend() {
 				PartsCount: s.Stream.GetPartsCount(),
 				Closed:     misc.AsUint32Bool(s.Stream.IsClosed()),
 			}
-			if s.handleError(binary.Write(s.conn, binary.LittleEndian, &wireStatusMsg)) {
+			if s.handleError(binary.Write(conn, binary.LittleEndian, &wireStatusMsg)) {
+				return
+			}
+			if s.handleError(conn.Flush()) {
 				return
 			}
 
@@ -164,30 +170,38 @@ func (s *SyncLink) goFuncSend() {
 			if !closed {
 				wireDataMsgNA.SetAbsPos(absPos)
 				wireDataMsgNA.SetLength(uint16(len(elem.([]byte))))
-				if s.handleError(wireDataMsgNA.Write(s.conn)) {
+				if s.handleError(wireDataMsgNA.Write(conn)) {
 					return
 				}
-				n, err = s.conn.Write(elem.([]byte))
+				n, err = conn.Write(elem.([]byte))
 				if n != len(elem.([]byte)) {
 					err = errors.New("short write")
 				}
 				if s.handleError(err) {
 					return
 				}
+				loop = 0
 			}
 		}
+		if loop > 0 {
+			runtime.Gosched()
+			if s.handleError(conn.Flush()) {
+				return
+			}
+		}
+		loop++
 	}
 }
 
 // handles ACKs readings
-func (s *SyncLink) goFuncSendAncillary() {
+func (s *SyncLink) goFuncSendAncillary(conn BufferedConn) {
 	var wireAcksMsg WireAcksMsg
 	for {
 		if s.Closed() {
 			return
 		}
 		// it will be mostly blocked here
-		if s.handleError(binary.Read(s.conn, binary.LittleEndian, &wireAcksMsg)) {
+		if s.handleError(binary.Read(conn, binary.LittleEndian, &wireAcksMsg)) {
 			return
 		}
 		if wireAcksMsg.Version != WireVersion {
@@ -206,10 +220,10 @@ func (s *SyncLink) goFuncSendAncillary() {
 }
 
 func (s *SyncLink) goFuncRecv() {
+	conn := NewBufferedConnSize(s.conn, 8192)
 	var bytes []byte
 	var n int
 	var err error
-	conn := NewBufferedConnSize(s.conn, 4096)
 	var wireHelloMsg WireHelloMsg
 	var wireStatusMsg WireStatusMsg
 	var wireDataMsgNA WireDataMsgNA
@@ -227,6 +241,7 @@ func (s *SyncLink) goFuncRecv() {
 			s.State = DISCONNECTED
 			return
 		}
+		// it will be mostly blocked here
 		bytes, err = conn.Peek(2)
 		if s.handleError(err) {
 			return
