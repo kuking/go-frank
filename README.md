@@ -1,8 +1,9 @@
 # go-frank streaming framework
 
-Two flavours: in-memory and persistent, both are multiple-producers, multiple-consumers; raw -fast- stream replicator.
+Two flavours: in-memory and persistent streams, both are multiple-producers, multiple-consumers; raw -fast- stream 
+replicator.
 
-It is fast (see [PERF.md](PERF.md)), it won't use typical mutexes, locks, channels, etc. It incorporates ideas
+It is fast (see [PERF.md](PERF.md)), it won't use the typical mutexes, locks, channels, etc. It incorporates ideas
 from: [Aeron](https://github.com/real-logic/Aeron),
 and [Mechanical Sympathy blog](https://mechanical-sympathy.blogspot.com).
 
@@ -40,7 +41,7 @@ README.md title is: go-frank streaming framework
 ## Performance
 
 Extracts from [PERF.md](PERF.md), Total data is 500GiB, which won't fit into main memory, disk is encrypted (lower
-performance), with 500 bytes events, it averages 1.82M inserts-per-second (throughput of 909MiB/s), and 1.72M
+performance), with 500 bytes events, it averages 1.82M inserts-per-second (throughput 909MiB/s), and 1.72M
 reads-per-second (862MiB/s). Multi-producer/thread safe.
 
 ```
@@ -53,7 +54,7 @@ Totals=1000M IOP; 500000MB; Perfs=1.72M IOPS; 862.37MB/s; avg 579ns/iop; [+Inf%]
 
 ## Replication
 
-It is a work in progress, but over 10GbE with OK hardware peaks at 285MiB/s (~3Gbits) transfers.
+It is a work-in-progress, but over 10GbE with OK hardware peaks at 285MiB/s (~3Gbits) transfers.
 
 ### Sender
 
