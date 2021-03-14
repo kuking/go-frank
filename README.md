@@ -55,11 +55,11 @@ Totals=1000M IOP; 500000MB; Perfs=1.72M IOPS; 862.37MB/s; avg 579ns/iop; [+Inf%]
 
 It is a work in progress, but over 10GbE with OK hardware peaks at 285MiB/s (~3Gbits) transfers.
 
-Sender
+### Sender
 
 ```
 % ./frankr send r@persistent-stream host.local:1234
-so sending: r @ persistent-stream -> backhoe.local:1234
+so sending: r @ persistent-stream -> host.local:1234
 [0: R: 575897886 (274.00MiB/s) 5.43% W: 10600003978 (0.00MiB/s)]
 [0: R: 863670286 (274.00MiB/s) 8.15% W: 10600003978 (0.00MiB/s)]
 [0: R: 1147062448 (270.00MiB/s) 10.82% W: 10600003978 (0.00MiB/s)]
@@ -74,7 +74,7 @@ so sending: r @ persistent-stream -> backhoe.local:1234
 [0: R: 3732372096 (281.00MiB/s) 35.21% W: 10600003978 (0.00MiB/s)]
 ```
 
-Receiver
+### Receiver
 
 ```
 % ./frankr accept streams/ :1234
