@@ -1,3 +1,7 @@
+# Persistent streams benchmarks
+
+Publishing into a persistent stream, subscribing and consuming from it.
+
 ### AMD Ryzen 7 3800X, 64GB RAM, Force MP510 (ECFM22.5)
 
 (disk is encrypted, see below max IO bandwidth)
