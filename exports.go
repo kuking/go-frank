@@ -1,10 +1,12 @@
 package go_frank
 
 import (
+	"bufio"
 	"github.com/kuking/go-frank/api"
 	"github.com/kuking/go-frank/base"
 	"github.com/kuking/go-frank/persistent"
 	"github.com/kuking/go-frank/serialisation"
+	"os"
 )
 
 // Creates am empty api.Stream with the required capacity in its ring buffer; the api.Stream is not cosed. If used directly with
@@ -21,6 +23,25 @@ func ArrayStream(elems interface{}) api.Stream {
 
 func StreamGenerator(generator func() api.Optional) api.Stream {
 	return base.StreamGenerator(generator)
+}
+
+func TextFileStream(filename string) api.Stream {
+	file, err := os.Open(filename)
+	if err != nil {
+		return EmptyStream(1)
+	}
+	return TextOsFileStream(file)
+}
+
+func TextOsFileStream(file *os.File) api.Stream {
+	scanner := bufio.NewScanner(file)
+	return base.StreamGenerator(func() api.Optional {
+		if scanner.Scan() {
+			return api.OptionalOf(scanner.Text())
+		}
+		_ = file.Close()
+		return api.EmptyOptional()
+	})
 }
 
 func PersistentStream(basePath string, partSize uint64, serialiser serialisation.StreamSerialiser) (api.PersistentStream, error) {

@@ -7,10 +7,10 @@ import (
 	"github.com/kuking/go-frank/extras"
 	"github.com/kuking/go-frank/serialisation"
 	"reflect"
+	"strings"
 )
 
-func main() {
-
+func registryPersistentDemo() {
 	// registers two memory streams in the registry
 	_ = frank.Register("input", frank.EmptyStream(1024))
 	_ = frank.Register("output", frank.EmptyStream(1024))
@@ -61,4 +61,24 @@ func main() {
 
 	// cleanup
 	_ = p.Delete()
+}
+
+func textFile() {
+	lines := frank.TextFileStream("README.md").Count()
+	chars := frank.TextFileStream("README.md").
+		Map(func(line string) int { return len(line) + 1 }).
+		Sum().
+		First()
+
+	fmt.Printf("README.md has %v lines and %v characters.\n", lines, chars)
+	title := frank.TextFileStream("README.md").
+		Filter(func(s string) bool { return len(s) < 1 || s[0] != '#' }).
+		Map(func(s string) string { return strings.TrimSpace(s[1:]) }).
+		First()
+	fmt.Printf("README.md title is: %v\n", title)
+}
+
+func main() {
+	textFile()
+	//registryPersistentDemo()
 }
