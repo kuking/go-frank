@@ -1,7 +1,6 @@
 # go-frank streaming framework
 
-Two flavours: in-memory and persistent streams, both are multiple-producers, multiple-consumers; raw -fast- stream 
-replicator.
+Two flavours: in-memory and persistent streams, multiple-producers, multiple-consumers; raw -fast- stream replicator.
 
 It is fast (see [PERF.md](PERF.md)), it won't use the typical mutexes, locks, channels, etc. It incorporates ideas
 from: [Aeron](https://github.com/real-logic/Aeron),
