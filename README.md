@@ -25,7 +25,7 @@ func textFile() {
     fmt.Printf("README.md has %v lines and %v characters.\n", lines, chars)
 
     title := frank.TextFileStream("README.md").
-    Filter(func (s string) bool { return len(s) < 1 || s[0] != '#' }).
+        Filter(func (s string) bool { return len(s) < 1 || s[0] != '#' }).
         Map(func (s string) string { return strings.TrimSpace(s[1:]) }).
         First()
     fmt.Printf("README.md title is: %v\n", title)
