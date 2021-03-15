@@ -4,10 +4,20 @@ Two flavours: in-memory and persistent streams, multiple-producers, multiple-con
 
 It is fast (see [PERF.md](PERF.md)), it won't use the typical mutexes, locks, channels, etc. It incorporates ideas
 from: [Aeron](https://github.com/real-logic/Aeron),
-and [Mechanical Sympathy blog](https://mechanical-sympathy.blogspot.com).
+and [Mechanical Sympathy blog](https://mechanical-sympathy.blogspot.com). Some golang reflection hacks
+from [Automi](https://github.com/vladimirvivien/automi).
 
 It tries to find a balance between maximum possible performance, which comes at high cost i.e. flyweights,
 non-allocation, buffer pools, etc. and a practical simple framework that performs very fast with low-latency.
+
+The main purpose of this library is not to create a Stream processing API like Automi, albeit it is syntactically
+similar and likely faster (has to be measured!), i.e. many operations have non-allocating alternatives i.e. FilterNA,
+ReduceNA, it is a simpler pulling architecture instead of using channels in between operations, custom non-blocking
+ring-buffers for sources, memory mapped files for disk-storage, etc.
+
+We aim to implement a simpler and more approachable Aeron cluster "pluggable framework". i.e. a client inserts events
+into a local stream that is replicated to processing servers, those events are processed and further events are output
+into a response stream and probably consumed by the initial client, all under 250 microseconds using commodity hardware.
 
 **Status:** Mostly works, you are welcome to participate.
 
