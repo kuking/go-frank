@@ -52,6 +52,53 @@ README.md has 94 lines and 3785 characters.
 README.md title is: go-frank streaming framework
 ```
 
+```go
+func persistentStream() {
+
+	// a new persistent-stream with file-blocks of 256MB storing []byte
+	p, _ := frank.PersistentStream("persistent-stream", 256*1024*1024, serialisation.ByteArraySerialiser{})
+
+	// insert ten million +1 records
+	for i := 0; i <= 10_000_000; i++ {
+		p.Feed([]byte(strconv.Itoa(i)))
+	}
+
+	// count them all
+	fmt.Printf("We found %v elements. \n",
+		p.Consume("c1").Count())
+
+	// count the bytes
+	fmt.Printf("There are %v bytes in total.\n",
+		p.Consume("c2").
+			Map(func(elem []byte) int {
+				return len(elem)
+			}).Sum().First())
+
+	// finds the longest string
+	fmt.Printf("The longest elment is: '%v'.\n",
+		p.Consume("c3").
+			Map(func(elem []byte) string {
+				return string(elem)
+			}).
+			Reduce(func(l, r string) string {
+				if len(l) > len(r) {
+					return l
+				}
+				return r
+			}).First())
+
+	p.Close()
+	_ = p.Delete()
+}
+```
+
+```
+We found 10000001 elements. 
+There are 68888898 bytes in total.
+The longest elment is: '10000000'.
+```
+
+
 ## Performance
 
 Extracts from [PERF.md](PERF.md), Total data is 500GiB, which won't fit into main memory, disk is encrypted (lower

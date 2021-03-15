@@ -7,6 +7,7 @@ import (
 	"github.com/kuking/go-frank/extras"
 	"github.com/kuking/go-frank/serialisation"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -63,6 +64,44 @@ func registryPersistentDemo() {
 	_ = p.Delete()
 }
 
+func persistentStream() {
+
+	// a new persistent-stream with file-blocks of 256MB storing []byte
+	p, _ := frank.PersistentStream("persistent-stream", 256*1024*1024, serialisation.ByteArraySerialiser{})
+
+	// insert ten million +1 records
+	for i := 0; i <= 10_000_000; i++ {
+		p.Feed([]byte(strconv.Itoa(i)))
+	}
+
+	// count them all
+	fmt.Printf("We found %v elements. \n",
+		p.Consume("c1").Count())
+
+	// count the bytes
+	fmt.Printf("There are %v bytes in total.\n",
+		p.Consume("c2").
+			Map(func(elem []byte) int {
+				return len(elem)
+			}).Sum().First())
+
+	// finds the longest string
+	fmt.Printf("The longest elment is: '%v'.\n",
+		p.Consume("c3").
+			Map(func(elem []byte) string {
+				return string(elem)
+			}).
+			Reduce(func(l, r string) string {
+				if len(l) > len(r) {
+					return l
+				}
+				return r
+			}).First())
+
+	p.Close()
+	_ = p.Delete()
+}
+
 func textFile() {
 	lines := frank.TextFileStream("README.md").Count()
 	chars := frank.TextFileStream("README.md").
@@ -84,6 +123,7 @@ func textFile() {
 }
 
 func main() {
-	textFile()
+	//textFile()
+	persistentStream()
 	//registryPersistentDemo()
 }
