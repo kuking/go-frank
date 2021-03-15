@@ -66,14 +66,19 @@ func registryPersistentDemo() {
 func textFile() {
 	lines := frank.TextFileStream("README.md").Count()
 	chars := frank.TextFileStream("README.md").
-		Map(func(line string) int { return len(line) + 1 }).
-		Sum().
-		First()
-
+		Map(func(line string) int {
+			return len(line) + 1
+		}).
+		Sum().First()
 	fmt.Printf("README.md has %v lines and %v characters.\n", lines, chars)
+
 	title := frank.TextFileStream("README.md").
-		Filter(func(s string) bool { return len(s) < 1 || s[0] != '#' }).
-		Map(func(s string) string { return strings.TrimSpace(s[1:]) }).
+		Filter(func(s string) bool {
+			return len(s) < 1 || s[0] != '#'
+		}).
+		Map(func(s string) string {
+			return strings.TrimSpace(s[1:])
+		}).
 		First()
 	fmt.Printf("README.md title is: %v\n", title)
 }
