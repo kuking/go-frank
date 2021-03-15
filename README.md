@@ -68,7 +68,8 @@ Totals=1000M IOP; 500000MB; Perfs=1.72M IOPS; 862.37MB/s; avg 579ns/iop; [+Inf%]
 
 ## Replication
 
-It is a work-in-progress, but over 10GbE with OK hardware peaks at 285MiB/s (~3Gbits) transfers.
+It is a work-in-progress, but over 10GbE with OK hardware peaks at 285MiB/s (~3Gbits) transfers. No RDMA, or zero-copy
+network libraries are being used, standard socket libraries.
 
 ### Sender
 
