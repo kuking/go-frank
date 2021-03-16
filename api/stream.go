@@ -102,6 +102,19 @@ const (
 	WaitingUpto1s     WaitTimeOut = 1_000_000_000
 )
 
+// Strategy specifying how to wait and process for new data. Different strategies are a trade-off between latency and
+// CPU usage. i.e. busy wait will have the lowest latency, at the expense of putting one CPU at 100% usage.
+// Always-wait, will impose a few ms latency due to clock-checking, wait and context-switching.
+// An hybrid solution it usually a good trade-off, fast-spin for a few thousand times, and then if no activity is
+// detected the thread is put to sleep and the context is switched to another process/goroutine; each time waiting a
+// bit longer until certain upper limit.
+type WaitDuty interface {
+	// callback notifying a loop during wait has occurred, if something has been processed since the last call the
+	// parameter `hasProcessed` should be set to true; the call might put the processor to wait or the goroutine to
+	// yield, depending on its configured behaviour.
+	Loop(hasProcessed bool)
+}
+
 // allocation free reducer
 type Reducer interface {
 	First(interface{})
