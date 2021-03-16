@@ -11,15 +11,15 @@ func TestBusyWait(t *testing.T) {
 	w := NewBusyWait()
 	t0 := time.Now()
 	for i := 0; i < 1_000; i++ {
-		w.Loop(false)
+		w.Loop()
 	}
-	factor := 2 * time.Now().Sub(t0).Nanoseconds() / 1_000
+	factor := 3 * time.Now().Sub(t0).Nanoseconds() / 1_000
 
 	// test
 	w = NewBusyWait()
 	t0 = time.Now()
 	for i := 0; i < 1_000_000; i++ {
-		w.Loop(false)
+		w.Loop()
 	}
 	tdNs := time.Now().Sub(t0).Nanoseconds()
 	if tdNs > factor*1_000_000 {
@@ -33,9 +33,9 @@ func TestNewFastSpinThenWait(t *testing.T) {
 	w := NewFastSpinThenWait(1_000_000, 1_000_000, 10_000_000)
 	t0 := time.Now()
 	for i := 0; i < 1_000; i++ {
-		w.Loop(false)
+		w.Loop()
 	}
-	factor := 2 * time.Now().Sub(t0).Nanoseconds() / 1_000
+	factor := 3 * time.Now().Sub(t0).Nanoseconds() / 1_000
 
 	// actual test
 	w = NewFastSpinThenWait(1_000_000, 1_000_000, 10_000_000)
@@ -43,7 +43,7 @@ func TestNewFastSpinThenWait(t *testing.T) {
 	// fast spi
 	t0 = time.Now()
 	for i := 0; i < 1_000_000; i++ {
-		w.Loop(false)
+		w.Loop()
 	}
 	tdNs := time.Now().Sub(t0).Nanoseconds()
 	if tdNs > 1_000_000*factor {
@@ -53,7 +53,7 @@ func TestNewFastSpinThenWait(t *testing.T) {
 	// slow, wait
 	t0 = time.Now()
 	for i := 0; i < 10; i++ {
-		w.Loop(false)
+		w.Loop()
 	}
 	tdNs = time.Now().Sub(t0).Nanoseconds()
 	if tdNs < 5_000_000*10 {
@@ -62,9 +62,9 @@ func TestNewFastSpinThenWait(t *testing.T) {
 
 	// once one is processed, it becomes fast spin again
 	t0 = time.Now()
-	w.Loop(true)
+	w.Reset()
 	for i := 0; i < 1_000_000; i++ {
-		w.Loop(false)
+		w.Loop()
 	}
 	tdNs = time.Now().Sub(t0).Nanoseconds()
 	if tdNs > 1_000_000*factor {

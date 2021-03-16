@@ -2,6 +2,7 @@ package persistent
 
 import (
 	"fmt"
+	"github.com/kuking/go-frank/base"
 	"github.com/kuking/go-frank/serialisation"
 	"io/ioutil"
 	"os"
@@ -56,26 +57,27 @@ func testSimpleCreateOpenFeedDelete(t *testing.T) {
 
 func TestSimpleCreateCloseOpenFeedCloseConsumeDelete(t *testing.T) {
 	prefix, _ := ioutil.TempDir("", "MMAP-")
-	base := prefix + "/a-stream"
+	baseDir := prefix + "/a-stream"
 	defer cleanup(prefix)
 
 	var s *MmapStream
 	var err error
-	if s, err = MmapStreamCreate(base, 64*1024, &serialisation.ByteArraySerialiser{}); err != nil {
+	if s, err = MmapStreamCreate(baseDir, 64*1024, &serialisation.ByteArraySerialiser{}); err != nil {
 		t.Fatal()
 	}
 	if err = s.CloseFile(); err != nil {
 		t.Fatal()
 	}
 
-	s, err = MmapStreamOpen(base, &serialisation.ByteArraySerialiser{})
+	s, err = MmapStreamOpen(baseDir, &serialisation.ByteArraySerialiser{})
 	for i := 0; i < 20_000; i++ {
 		s.Feed([]byte(fmt.Sprintf("!!%v!!%v!!", i, i)))
 	}
 
 	subId := s.SubscriberIdForName("sub-1")
+	waitduty := base.NewDefaultFastSpinThenWait()
 	for i := 0; i < 20_000; i++ {
-		val, _, _ := s.PullBySubId(subId, -1)
+		val, _, _ := s.PullBySubId(subId, -1, waitduty)
 		if fmt.Sprintf("!!%v!!%v!!", i, i) != string(val.([]byte)) {
 			t.Fatal(fmt.Sprintf("%v should be eq to %v", val, i))
 		}

@@ -12,4 +12,5 @@ type StreamProvider interface {
 	PeekLimit() uint64
 	Peek(absPos uint64) interface{}
 	WaitTimeOut(waitTimeOut api.WaitTimeOut)
+	WaitDuty(waitDuty api.WaitDuty)
 }

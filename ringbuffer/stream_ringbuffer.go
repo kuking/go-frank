@@ -14,9 +14,10 @@ type ringBufferProvider struct {
 	ringWAlloc  uint64
 	closedFlag  int32
 	waitTimeOut api.WaitTimeOut
+	waitDuty    api.WaitDuty
 }
 
-func NewRingBufferProvider(capacity int) *ringBufferProvider {
+func NewRingBufferProvider(capacity int, waitDuty api.WaitDuty) *ringBufferProvider {
 	return &ringBufferProvider{
 		ringBuffer:  make([]interface{}, capacity),
 		ringRead:    0,
@@ -24,6 +25,7 @@ func NewRingBufferProvider(capacity int) *ringBufferProvider {
 		ringWAlloc:  0,
 		closedFlag:  0,
 		waitTimeOut: api.UntilClosed,
+		waitDuty:    waitDuty,
 	}
 }
 
@@ -51,6 +53,7 @@ func (r *ringBufferProvider) Feed(elem interface{}) {
 
 func (r *ringBufferProvider) Pull() (read interface{}, closed bool) {
 	var totalNsWait int64
+	r.waitDuty.Reset()
 	rbs := uint64(len(r.ringBuffer))
 	for i := 0; ; i++ {
 		ringRead := atomic.LoadUint64(&r.ringRead)
@@ -67,9 +70,7 @@ func (r *ringBufferProvider) Pull() (read interface{}, closed bool) {
 		if ringRead == ringWAlloc && !otherThreadWriting && r.IsClosed() {
 			return nil, true
 		}
-		runtime.Gosched()
-		time.Sleep(time.Duration(i) * time.Nanosecond)
-		totalNsWait += int64(i)
+		totalNsWait += r.waitDuty.Loop()
 		if r.waitTimeOut == api.UntilClosed {
 			// just continue
 		} else if !otherThreadWriting && totalNsWait > int64(r.waitTimeOut) {
@@ -130,4 +131,8 @@ func (r *ringBufferProvider) Peek(absPos uint64) interface{} {
 
 func (r *ringBufferProvider) WaitTimeOut(waitTimeOut api.WaitTimeOut) {
 	r.waitTimeOut = waitTimeOut
+}
+
+func (r *ringBufferProvider) WaitDuty(waitDuty api.WaitDuty) {
+	r.waitDuty = waitDuty
 }

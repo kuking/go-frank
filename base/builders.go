@@ -12,7 +12,7 @@ import (
 //
 // --------------------------------------------------------------------------------------------------------------------
 func EmptyStream(capacity int) api.Stream {
-	rb := ringbuffer.NewRingBufferProvider(capacity)
+	rb := ringbuffer.NewRingBufferProvider(capacity, NewDefaultFastSpinThenWait())
 	return NewStreamImpl(rb, rb.Pull)
 }
 

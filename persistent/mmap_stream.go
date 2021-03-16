@@ -195,8 +195,9 @@ func (s *MmapStream) Feed(elem interface{}) {
 
 // TODO: this could return an []byte pointer to the mmap, so no copy;
 // TODO: needs to differentiate between timeout and closed stream, to different things
-func (s *MmapStream) PullBySubId(subId int, timeOut api.WaitTimeOut) (elem interface{}, readAbsPos uint64, closed bool) {
+func (s *MmapStream) PullBySubId(subId int, timeOut api.WaitTimeOut, waitDuty api.WaitDuty) (elem interface{}, readAbsPos uint64, closed bool) {
 	var totalNsWait int64
+	waitDuty.Reset()
 	for i := 0; ; i++ {
 		readAbsPos = atomic.LoadUint64(&s.descriptor.SubRPos[subId])
 		ofsWrite := atomic.LoadUint64(&s.descriptor.Write)
@@ -220,9 +221,7 @@ func (s *MmapStream) PullBySubId(subId int, timeOut api.WaitTimeOut) (elem inter
 		} else if s.IsClosed() {
 			return nil, readAbsPos, true
 		}
-		runtime.Gosched()
-		time.Sleep(time.Duration(i) * time.Nanosecond)
-		totalNsWait += int64(i)
+		totalNsWait += waitDuty.Loop()
 		if timeOut == api.UntilClosed {
 			// just continue
 		} else if totalNsWait > int64(timeOut) {

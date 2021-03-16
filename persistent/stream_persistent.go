@@ -17,14 +17,16 @@ func OpenCreatePersistentStream(basePath string, partSize uint64, serialiser ser
 }
 
 func (s *MmapStream) Consume(subscriberName string) api.Stream {
+	waitDuty := base.NewDefaultFastSpinThenWait()
 	subId := s.SubscriberIdForName(subscriberName)
 	provider := &mmapStreamProviderForSubscriber{
 		subId:       subId,
 		waitTimeOut: api.UntilNoMoreData,
+		waitDuty:    waitDuty,
 		mmapStream:  s,
 	}
 	pullFn := func() (read interface{}, closed bool) {
-		read, _, closed = s.PullBySubId(subId, provider.waitTimeOut)
+		read, _, closed = s.PullBySubId(subId, provider.waitTimeOut, provider.waitDuty)
 		return
 	}
 	return base.NewStreamImpl(provider, pullFn)
@@ -38,6 +40,7 @@ func (s *MmapStream) Publish(uri string) {
 type mmapStreamProviderForSubscriber struct {
 	subId       int
 	waitTimeOut api.WaitTimeOut
+	waitDuty    api.WaitDuty
 	mmapStream  *MmapStream
 }
 
@@ -53,7 +56,7 @@ func (ms *mmapStreamProviderForSubscriber) IsClosed() bool {
 }
 
 func (ms *mmapStreamProviderForSubscriber) Pull() (elem interface{}, closed bool) {
-	elem, _, closed = ms.mmapStream.PullBySubId(ms.subId, ms.waitTimeOut)
+	elem, _, closed = ms.mmapStream.PullBySubId(ms.subId, ms.waitTimeOut, ms.waitDuty)
 	return
 }
 
@@ -78,4 +81,8 @@ func (ms *mmapStreamProviderForSubscriber) Peek(absPos uint64) interface{} {
 
 func (ms *mmapStreamProviderForSubscriber) WaitTimeOut(waitTimeOut api.WaitTimeOut) {
 	ms.waitTimeOut = waitTimeOut
+}
+
+func (ms *mmapStreamProviderForSubscriber) WaitDuty(waitDuty api.WaitDuty) {
+	ms.waitDuty = waitDuty
 }

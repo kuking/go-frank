@@ -11,6 +11,7 @@ type Stream interface {
 	Close()
 	IsClosed() bool
 	TimeOut(waitTimeOut WaitTimeOut) Stream
+	WaitDuty(duty WaitDuty) Stream
 
 	// Positioning operations
 	Reset() uint64
@@ -112,7 +113,8 @@ type WaitDuty interface {
 	// callback notifying a loop during wait has occurred, if something has been processed since the last call the
 	// parameter `hasProcessed` should be set to true; the call might put the processor to wait or the goroutine to
 	// yield, depending on its configured behaviour.
-	Loop(hasProcessed bool)
+	Loop() (waitedNs int64)
+	Reset()
 }
 
 // allocation free reducer

@@ -64,3 +64,8 @@ func (s *StreamImpl) TimeOut(waitTimeOut api.WaitTimeOut) api.Stream {
 	s.provider.WaitTimeOut(waitTimeOut)
 	return s
 }
+
+func (s *StreamImpl) WaitDuty(waitDuty api.WaitDuty) api.Stream {
+	s.provider.WaitDuty(waitDuty)
+	return s
+}

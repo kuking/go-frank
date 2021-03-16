@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/kuking/go-frank/api"
+	"github.com/kuking/go-frank/base"
 	"github.com/kuking/go-frank/misc"
 	"github.com/kuking/go-frank/persistent"
 	"github.com/kuking/go-frank/serialisation"
@@ -243,9 +244,10 @@ func TestSyncLink_GoFuncRecv_ReceivesData(t *testing.T) {
 
 	feedStream(ctx.sendStream, 100) // because it is easy to obtain correct AbsPos, etc.
 	subId := ctx.sendStream.SubscriberIdForName("sub1")
+	waitDuty := base.NewDefaultFastSpinThenWait()
 	lastAbsPos := uint64(0)
 	for {
-		elem, absPos, closed := ctx.sendStream.PullBySubId(subId, api.UntilNoMoreData)
+		elem, absPos, closed := ctx.sendStream.PullBySubId(subId, api.UntilNoMoreData, waitDuty)
 		if closed {
 			break
 		}
@@ -271,9 +273,10 @@ func TestSyncLink_GoFuncRecv_NACKN(t *testing.T) {
 
 	feedStream(ctx.sendStream, 100)
 	subId := ctx.sendStream.SubscriberIdForName("sub1")
+	waitDuty := base.NewDefaultFastSpinThenWait()
 	var expAckPos uint64
 	for i := 0; i < 10; i++ {
-		elem, absPos, _ := ctx.sendStream.PullBySubId(subId, api.UntilNoMoreData)
+		elem, absPos, _ := ctx.sendStream.PullBySubId(subId, api.UntilNoMoreData, waitDuty)
 		if i > 2 && i < 5 { // lets skip message 3,4 -- so it will ask to retry from 2
 			if i == 3 {
 				expAckPos = absPos
@@ -394,11 +397,13 @@ func initialRecvHandShakeDone(ctx *context) {
 }
 
 func assertEqualStreams(left *persistent.MmapStream, right *persistent.MmapStream, ctx *context) {
+	leftWaitDuty := base.NewDefaultFastSpinThenWait()
+	rightWaitDuty := base.NewDefaultFastSpinThenWait()
 	leftSubId := left.SubscriberIdForName("left-subscriber")
 	rightSubId := right.SubscriberIdForName("right-subscriber")
 	for {
-		leftElem, leftAbsPos, leftClosed := left.PullBySubId(leftSubId, api.UntilNoMoreData)
-		rightElem, rightAbsPos, rightClosed := right.PullBySubId(rightSubId, api.UntilNoMoreData)
+		leftElem, leftAbsPos, leftClosed := left.PullBySubId(leftSubId, api.UntilNoMoreData, leftWaitDuty)
+		rightElem, rightAbsPos, rightClosed := right.PullBySubId(rightSubId, api.UntilNoMoreData, rightWaitDuty)
 		if leftClosed && rightClosed {
 			return // happy
 		}

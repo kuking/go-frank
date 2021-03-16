@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/kuking/go-frank/api"
+	"github.com/kuking/go-frank/base"
 	"github.com/kuking/go-frank/misc"
 	"github.com/kuking/go-frank/persistent"
 	"github.com/kuking/go-frank/serialisation"
@@ -127,6 +128,8 @@ func (s *SyncLink) goFuncSend() {
 	wireDataMsgNA.SetVersion(WireVersion)
 	wireDataMsgNA.SetMessage(WireDATA)
 
+	waitDuty := base.NewDefaultFastSpinThenWait()
+
 	go s.goFuncSendAncillary(conn)
 
 	for {
@@ -166,7 +169,7 @@ func (s *SyncLink) goFuncSend() {
 			s.State = PUSHING
 		}
 		if s.State == PUSHING {
-			elem, absPos, closed := s.Stream.PullBySubId(s.subId, api.WaitingUpto10ms)
+			elem, absPos, closed := s.Stream.PullBySubId(s.subId, api.WaitingUpto10ms, waitDuty)
 			if !closed {
 				wireDataMsgNA.SetAbsPos(absPos)
 				wireDataMsgNA.SetLength(uint16(len(elem.([]byte))))
