@@ -19,7 +19,7 @@ var eventSize uint
 var baseFile string
 var subsName string
 var resetSubscriber bool
-var waitApproach int64
+var waitTimeOut int64
 var doHelp bool
 var beQuiet bool
 var cmd string
@@ -31,7 +31,7 @@ func doArgsParsing() bool {
 	flag.StringVar(&baseFile, "bs", "persistent-stream", "Base file path")
 	flag.StringVar(&subsName, "sn", "sub-1", "Subscriber name")
 	flag.BoolVar(&resetSubscriber, "rs", false, "Reset Subscriber AbsReadPos to 0")
-	flag.Int64Var(&waitApproach, "wa", int64(api.UntilNoMoreData), "Wait approach: -1 until closed, 0 until no more data, N ms wait.")
+	flag.Int64Var(&waitTimeOut, "wto", int64(api.UntilNoMoreData), "Wait Time-Out: -1 until closed, 0 until no more data, N ms wait.")
 	flag.BoolVar(&beQuiet, "q", false, "Be quiet, better for performance stats")
 	flag.BoolVar(&doHelp, "h", false, "Show usage")
 	flag.Parse()
@@ -87,8 +87,8 @@ func main() {
 		os.Exit(-1)
 	}
 
-	if waitApproach > 0 {
-		waitApproach *= 1_000_000
+	if waitTimeOut > 0 {
+		waitTimeOut *= 1_000_000
 	}
 
 	p, err := frank.PersistentStream(baseFile, partSize*1024*1024, serialisation.ByteArraySerialiser{})
@@ -98,7 +98,7 @@ func main() {
 
 	if cmd == "sub" {
 		s := p.Consume(subsName)
-		s.Wait(api.WaitApproach(waitApproach))
+		s.TimeOut(api.WaitTimeOut(waitTimeOut))
 		if resetSubscriber {
 			s.Reset()
 		}
@@ -111,7 +111,7 @@ func main() {
 		i := uint64(0)
 		bytes := uint64(0)
 		s := p.Consume(subsName)
-		s.Wait(api.WaitApproach(waitApproach)).Reset()
+		s.TimeOut(api.WaitTimeOut(waitTimeOut)).Reset()
 		s.ForEach(func(elem []byte) {
 			i++
 			bytes += uint64(len(elem))
@@ -126,7 +126,7 @@ func main() {
 		fmt.Printf("Elems: %d\n", i)
 	} else if cmd == "pub" {
 		s := p.Consume(subsName)
-		s.Wait(api.WaitApproach(waitApproach))
+		s.TimeOut(api.WaitTimeOut(waitTimeOut))
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			s.Feed(scanner.Bytes())

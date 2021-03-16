@@ -11,5 +11,5 @@ type StreamProvider interface {
 	CurrAbsPos() uint64
 	PeekLimit() uint64
 	Peek(absPos uint64) interface{}
-	Wait(approach api.WaitApproach)
+	WaitTimeOut(waitTimeOut api.WaitTimeOut)
 }

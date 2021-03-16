@@ -30,7 +30,7 @@ func registryPersistentDemo() {
 	// mini-virtual stream 2: subscribes to the persistent stream with subscriber name 'output' and sends the stream
 	// traffic to the in-memory stream 'output', you can have multiple consumers so this can be done multiple times
 	_ = frank.SubscribeNE("persistent?sn=output").
-		Wait(api.UntilClosed). // persistent streams won't consume until closed by default as they are long-lived streams
+		TimeOut(api.UntilClosed). // persistent streams won't consume until closed by default as they are long-lived streams
 		PublishClose("output")
 
 	// feeds 25 numbers into the input, and closes the input stream.

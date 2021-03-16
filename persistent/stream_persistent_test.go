@@ -73,14 +73,14 @@ func TestOpenCreatePersistentStream_MultiConsumerMultiProducer(t *testing.T) {
 
 }
 
-func TestWaitApproachPersistent(t *testing.T) {
+func TestWaitTimeOutPersistent(t *testing.T) {
 	prefix, _ := ioutil.TempDir("", "MMAP-")
 	base := prefix + "/a-stream"
 	defer cleanup(prefix)
 	p, _ := OpenCreatePersistentStream(base, 64*1024, serialisation.ByteArraySerialiser{})
 
 	s := p.Consume("lala")
-	s.Wait(api.WaitingUpto10ms)
+	s.TimeOut(api.WaitingUpto10ms)
 	t0 := time.Now()
 	if s.Count() != 0 {
 		t.Fatal()
@@ -91,7 +91,7 @@ func TestWaitApproachPersistent(t *testing.T) {
 	}
 
 	s.Feed("1")
-	s.Wait(api.UntilNoMoreData)
+	s.TimeOut(api.UntilNoMoreData)
 	t0 = time.Now()
 	if s.Count() != 1 {
 		t.Fatal()

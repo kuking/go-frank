@@ -8,22 +8,22 @@ import (
 )
 
 type ringBufferProvider struct {
-	ringBuffer   []interface{}
-	ringRead     uint64
-	ringWrite    uint64
-	ringWAlloc   uint64
-	closedFlag   int32
-	WaitApproach api.WaitApproach
+	ringBuffer  []interface{}
+	ringRead    uint64
+	ringWrite   uint64
+	ringWAlloc  uint64
+	closedFlag  int32
+	waitTimeOut api.WaitTimeOut
 }
 
 func NewRingBufferProvider(capacity int) *ringBufferProvider {
 	return &ringBufferProvider{
-		ringBuffer:   make([]interface{}, capacity),
-		ringRead:     0,
-		ringWrite:    0,
-		ringWAlloc:   0,
-		closedFlag:   0,
-		WaitApproach: api.UntilClosed,
+		ringBuffer:  make([]interface{}, capacity),
+		ringRead:    0,
+		ringWrite:   0,
+		ringWAlloc:  0,
+		closedFlag:  0,
+		waitTimeOut: api.UntilClosed,
 	}
 }
 
@@ -70,9 +70,9 @@ func (r *ringBufferProvider) Pull() (read interface{}, closed bool) {
 		runtime.Gosched()
 		time.Sleep(time.Duration(i) * time.Nanosecond)
 		totalNsWait += int64(i)
-		if r.WaitApproach == api.UntilClosed {
+		if r.waitTimeOut == api.UntilClosed {
 			// just continue
-		} else if !otherThreadWriting && totalNsWait > int64(r.WaitApproach) {
+		} else if !otherThreadWriting && totalNsWait > int64(r.waitTimeOut) {
 			return nil, true
 		}
 	}
@@ -128,6 +128,6 @@ func (r *ringBufferProvider) Peek(absPos uint64) interface{} {
 	return r.ringBuffer[absPos%rbs]
 }
 
-func (r *ringBufferProvider) Wait(waitApproach api.WaitApproach) {
-	r.WaitApproach = waitApproach
+func (r *ringBufferProvider) WaitTimeOut(waitTimeOut api.WaitTimeOut) {
+	r.waitTimeOut = waitTimeOut
 }

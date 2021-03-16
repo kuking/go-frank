@@ -10,7 +10,7 @@ type Stream interface {
 	Feed(elem interface{})
 	Close()
 	IsClosed() bool
-	Wait(waitApproach WaitApproach) Stream
+	TimeOut(waitTimeOut WaitTimeOut) Stream
 
 	// Positioning operations
 	Reset() uint64
@@ -88,18 +88,18 @@ type PersistentStream interface {
 	//Statistics() map[string]interface{}
 
 	Publish(uri string)
-	// Subscribing, wait approach is UntilNoMoreData
+	// Subscribing, wait time-out is UntilNoMoreData
 	Consume(subscriberName string) Stream
 }
 
-type WaitApproach int64
+type WaitTimeOut int64
 
 const (
-	UntilClosed       WaitApproach = -1
-	UntilNoMoreData   WaitApproach = 0
-	WaitingUpto1000ns WaitApproach = 1_000
-	WaitingUpto10ms   WaitApproach = 10_000_000
-	WaitingUpto1s     WaitApproach = 1_000_000_000
+	UntilClosed       WaitTimeOut = -1
+	UntilNoMoreData   WaitTimeOut = 0
+	WaitingUpto1000ns WaitTimeOut = 1_000
+	WaitingUpto10ms   WaitTimeOut = 10_000_000
+	WaitingUpto1s     WaitTimeOut = 1_000_000_000
 )
 
 // allocation free reducer

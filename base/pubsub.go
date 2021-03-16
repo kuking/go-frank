@@ -45,7 +45,7 @@ func Subscribe(uri string) (api.Stream, error) {
 }
 
 // Consumes the contents of this Stream and publishes it into the provided URI Steam. Consumption will follow the
-// Stream' Wait approach; the output Stream will be left open.
+// Stream' Wait Time-Out; the output Stream will be left open.
 func (s *StreamImpl) Publish(uri string) error {
 	out, err := LocalRegistry.Obtain(uri)
 	if err != nil {
@@ -56,7 +56,7 @@ func (s *StreamImpl) Publish(uri string) error {
 }
 
 // Consumes the contents of this Stream and publishes it into the provided URI Steam. Consumption will follow the
-// Stream' Wait approach; the output Stream will be Closed when no more elements are available in the Stream.
+// Stream' Wait Time-Out; the output Stream will be Closed when no more elements are available in the Stream.
 func (s *StreamImpl) PublishClose(uri string) error {
 	out, err := LocalRegistry.Obtain(uri)
 	if err != nil {

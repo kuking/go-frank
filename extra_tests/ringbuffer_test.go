@@ -118,9 +118,9 @@ func TestReset(t *testing.T) {
 	}
 }
 
-func TestWaitApproachInMemory(t *testing.T) {
+func TestWaitTimeOutInMemory(t *testing.T) {
 	s := base.EmptyStream(1024)
-	s.Wait(api.WaitingUpto10ms)
+	s.TimeOut(api.WaitingUpto10ms)
 	t0 := time.Now()
 	if s.Count() != 0 {
 		t.Fatal()
@@ -131,7 +131,7 @@ func TestWaitApproachInMemory(t *testing.T) {
 	}
 
 	s.Feed("1")
-	s.Wait(api.UntilNoMoreData)
+	s.TimeOut(api.UntilNoMoreData)
 	t0 = time.Now()
 	if s.Count() != 1 {
 		t.Fatal()
