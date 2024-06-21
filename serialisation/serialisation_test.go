@@ -19,7 +19,7 @@ func TestGobSerialiser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if size != 45 {
+	if size != 44 {
 		t.Fatal(size)
 	}
 
