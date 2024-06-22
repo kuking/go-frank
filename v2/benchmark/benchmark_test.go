@@ -1,7 +1,7 @@
 package benchmark
 
 import (
-	v2 "github.com/kuking/go-frank/v2"
+	"github.com/kuking/go-frank/v2"
 	"testing"
 )
 
